@@ -1,0 +1,86 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'thought.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
+
+class ThoughtAdapter extends TypeAdapter<Thought> {
+  @override
+  final int typeId = 0;
+
+  @override
+  Thought read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return Thought(
+      id: fields[0] as int,
+      dx: fields[1] as double,
+      dy: fields[2] as double,
+      content: fields[3] as String,
+      insight: fields[4] as String?,
+      action: fields[5] as String?,
+      category: fields[6] as String,
+      isDeleting: fields[7] as bool,
+      createdAt: fields[8] as DateTime,
+      revisitAt: fields[9] as DateTime?,
+      clusterId: fields[10] as String?,
+      revisitCount: fields[12] as int,
+      isArchived: fields[11] as bool,
+      starSize: (fields[13] as double?) ?? 1.0,
+      glowIntensity: (fields[14] as double?) ?? 1.0,
+      particleSpread: (fields[15] as double?) ?? 1.0,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Thought obj) {
+    writer
+      ..writeByte(16)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.dx)
+      ..writeByte(2)
+      ..write(obj.dy)
+      ..writeByte(3)
+      ..write(obj.content)
+      ..writeByte(4)
+      ..write(obj.insight)
+      ..writeByte(5)
+      ..write(obj.action)
+      ..writeByte(6)
+      ..write(obj.category)
+      ..writeByte(7)
+      ..write(obj.isDeleting)
+      ..writeByte(8)
+      ..write(obj.createdAt)
+      ..writeByte(9)
+      ..write(obj.revisitAt)
+      ..writeByte(10)
+      ..write(obj.clusterId)
+      ..writeByte(11)
+      ..write(obj.isArchived)
+      ..writeByte(12)
+      ..write(obj.revisitCount)
+      ..writeByte(13)
+      ..write(obj.starSize)
+      ..writeByte(14)
+      ..write(obj.glowIntensity)
+      ..writeByte(15)
+      ..write(obj.particleSpread);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ThoughtAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

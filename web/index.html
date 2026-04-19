@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MindGalaxy - Flutter Web app with emoji central star and popping thought stars.">
+
+  <!-- Base href for proper asset loading in local and production environments -->
+  <base href="/">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="MindGalaxy">
+  <link rel="apple-touch-icon" href="assets/icon/app_icon.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/icon/app_icon.png"/>
+
+  <title>MindGalaxy</title>
+  <link rel="manifest" href="manifest.json">
+
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    const serviceWorkerVersion = null;
+  </script>
+  <!-- This script adds the Flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+</head>
+<body>
+  <noscript>
+    <div style="color: red; text-align: center; margin-top: 2em;">
+      JavaScriptを有効にしてください。Please enable JavaScript to run this app.
+    </div>
+  </noscript>
+  <script>
+    window.addEventListener('load', function(ev) {
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
