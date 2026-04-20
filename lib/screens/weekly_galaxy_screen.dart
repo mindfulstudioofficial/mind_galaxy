@@ -23,8 +23,6 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   static const Color _statsEmerald = Color(0xFF50E3C2);
   final List<Thought> _weekThoughts = <Thought>[];
   final ScreenshotController _screenshotController = ScreenshotController();
-  int? _selectedThoughtId;
-  Offset? _selectedPosition;
   bool _isSharingImage = false;
 
   static const List<String> _layerOrder = <String>[
@@ -59,6 +57,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
         return const Color(0xFFFFE066);
       case 'past':
         return const Color(0xFFC184FF);
+      case 'neutral':
+        return const Color(0xFFDCE7FF);
       default:
         return Colors.white;
     }
@@ -162,18 +162,6 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
         setState(() => _isSharingImage = false);
       }
     }
-  }
-
-  String _previewText(Thought thought) {
-    final loc = AppLocalizations.of(context)!;
-    final dt = thought.createdAt;
-    final hh = dt.hour.toString().padLeft(2, '0');
-    final mm = dt.minute.toString().padLeft(2, '0');
-    final insight = _isFilled(thought.insight) ? loc.insightShort : '-';
-    final action = _isFilled(thought.action) ? loc.actionShort : '-';
-    return "${loc.thoughtLabel}\n"
-        "${loc.createdAtLabel} ${dt.month}/${dt.day} $hh:$mm\n"
-        "$insight / $action";
   }
 
   _WeeklySummary _buildWeeklySummary() {
@@ -283,6 +271,111 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     );
   }
 
+  String _starsCountLabel(int count) {
+    return AppLocalizations.of(context)!.starsCount(count);
+  }
+
+  double _measureTextWidth(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return painter.width;
+  }
+
+  _LabelLayoutSpec _computeLabelLayoutSpec(
+    BoxConstraints constraints,
+    _WeeklySummary summary,
+  ) {
+    const minLabelWidth = 86.0;
+    final maxLabelWidth = constraints.maxWidth * 0.34;
+    const baseCategorySize = 12.0;
+    const baseCountSize = 10.0;
+    const minCategorySize = 9.6;
+    const minCountSize = 8.6;
+    const sidePadding = 16.0;
+
+    var categorySize = baseCategorySize;
+    var countSize = baseCountSize;
+    var categorySpacing = 1.0;
+    var countSpacing = 1.0;
+
+    double requiredWidthFor({
+      required double categoryFontSize,
+      required double countFontSize,
+      required double categoryLetterSpacing,
+      required double countLetterSpacing,
+    }) {
+      var maxCategoryWidth = 0.0;
+      var maxCountWidth = 0.0;
+      for (final category in _layerOrder) {
+        final categoryLabel = _categoryLabel(category);
+        final starsLabel =
+            _starsCountLabel(summary.countsByCategory[category] ?? 0);
+        final categoryWidth = _measureTextWidth(
+          categoryLabel,
+          TextStyle(
+            fontSize: categoryFontSize,
+            fontWeight: FontWeight.w300,
+            letterSpacing: categoryLetterSpacing,
+          ),
+        );
+        final countWidth = _measureTextWidth(
+          starsLabel,
+          TextStyle(
+            fontSize: countFontSize,
+            fontWeight: FontWeight.w300,
+            letterSpacing: countLetterSpacing,
+          ),
+        );
+        if (categoryWidth > maxCategoryWidth) maxCategoryWidth = categoryWidth;
+        if (countWidth > maxCountWidth) maxCountWidth = countWidth;
+      }
+      return max(maxCategoryWidth, maxCountWidth) + sidePadding;
+    }
+
+    var requiredWidth = requiredWidthFor(
+      categoryFontSize: categorySize,
+      countFontSize: countSize,
+      categoryLetterSpacing: categorySpacing,
+      countLetterSpacing: countSpacing,
+    );
+
+    if (requiredWidth > maxLabelWidth) {
+      final scale = (maxLabelWidth / requiredWidth).clamp(0.75, 1.0);
+      categorySize =
+          (baseCategorySize * scale).clamp(minCategorySize, baseCategorySize);
+      countSize = (baseCountSize * scale).clamp(minCountSize, baseCountSize);
+      categorySpacing = (1.0 * scale).clamp(0.55, 1.0);
+      countSpacing = (1.0 * scale).clamp(0.55, 1.0);
+      requiredWidth = requiredWidthFor(
+        categoryFontSize: categorySize,
+        countFontSize: countSize,
+        categoryLetterSpacing: categorySpacing,
+        countLetterSpacing: countSpacing,
+      );
+    }
+
+    final shouldWrapCategory = requiredWidth > maxLabelWidth;
+    final labelWidth = shouldWrapCategory
+        ? maxLabelWidth
+        : requiredWidth.clamp(minLabelWidth, maxLabelWidth);
+    final chartLeftGap = shouldWrapCategory ? 1.5 : 0.8;
+    return _LabelLayoutSpec(
+      labelColumnWidth: labelWidth,
+      chartLeftGap: chartLeftGap,
+      chartRightPadding: 3.0,
+      categoryFontSize: categorySize,
+      countFontSize: countSize,
+      categoryLetterSpacing: categorySpacing,
+      countLetterSpacing: countSpacing,
+      categoryMaxLines: shouldWrapCategory ? 2 : 1,
+      labelOverlayHeight: shouldWrapCategory ? 54.0 : 44.0,
+      labelTopOffset: shouldWrapCategory ? -18.0 : -14.0,
+    );
+  }
+
   Widget _buildStatConstellation({
     required int count,
     required String label,
@@ -357,7 +450,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                AppLocalizations.of(context)!.starsCount(count),
+                _starsCountLabel(count),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _statsEmerald.withOpacity(0.62),
@@ -395,7 +488,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              AppLocalizations.of(context)!.weeklyAnalysis,
+              loc.weeklyAnalysis,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.78),
                 fontSize: compact ? 10 : 12,
@@ -484,168 +577,144 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                     height: topHeight,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
+                        final labelSpec =
+                            _computeLabelLayoutSpec(constraints, summary);
+                        final labelColumnWidth = labelSpec.labelColumnWidth;
+                        final chartLeftGap = labelSpec.chartLeftGap;
+                        final chartRightPadding = labelSpec.chartRightPadding;
+                        final chartLeftInset = labelColumnWidth + chartLeftGap;
                         final layout = _WeeklyGalaxyLayout.build(
                           thoughts: _weekThoughts,
                           categoryResolver: _classifyThought,
                           layerOrder: _layerOrder,
                           width: constraints.maxWidth,
                           height: constraints.maxHeight,
+                          leftInset: chartLeftInset,
+                          rightInset: chartRightPadding,
                           colorForCategory: _colorForCategory,
                         );
-                        _PlottedStar? selected;
-                        if (_selectedThoughtId != null) {
-                          for (final star in layout.stars) {
-                            if (star.thought.id == _selectedThoughtId) {
-                              selected = star;
-                              break;
-                            }
-                          }
-                        }
-
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (details) {
-                            final tap = details.localPosition;
-                            _PlottedStar? hit;
-                            var nearest = 28.0;
-                            for (final star in layout.stars) {
-                              final d = (star.position - tap).distance;
-                              if (d <= nearest) {
-                                nearest = d;
-                                hit = star;
-                              }
-                            }
-                            setState(() {
-                              _selectedThoughtId = hit?.thought.id;
-                              _selectedPosition = hit?.position;
-                            });
-                          },
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _WeeklyGalaxyPainter(layout: layout),
-                                ),
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _WeeklyGalaxyPainter(layout: layout),
                               ),
-                              Positioned(
-                                left: 12,
-                                right: 12,
-                                top: 12,
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: List<Widget>.generate(
-                                    7,
-                                    (index) => Text(
-                                      const [
-                                        'Mon',
-                                        'Tue',
-                                        'Wed',
-                                        'Thu',
-                                        'Fri',
-                                        'Sat',
-                                        'Sun'
-                                      ][index],
-                                      style: TextStyle(
-                                        color: Colors.white.withOpacity(0.45),
-                                        fontSize: 10,
-                                        letterSpacing: 2.4,
+                            ),
+                            Positioned(
+                              left: chartLeftInset,
+                              right: chartRightPadding,
+                              top: 12,
+                              child: Row(
+                                children: List<Widget>.generate(
+                                  7,
+                                  (index) => Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        [
+                                          loc.weekdayMonShort,
+                                          loc.weekdayTueShort,
+                                          loc.weekdayWedShort,
+                                          loc.weekdayThuShort,
+                                          loc.weekdayFriShort,
+                                          loc.weekdaySatShort,
+                                          loc.weekdaySunShort,
+                                        ][index],
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.45),
+                                          fontSize: 8.5,
+                                          letterSpacing: 1.2,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                              ...layout.layerY.entries.map((entry) {
-                                final categoryCount =
-                                    summary.countsByCategory[entry.key] ?? 0;
-                                return Positioned(
-                                  left: 10,
-                                  top: entry.value - 14,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                            ),
+                            ...layout.layerY.entries.map((entry) {
+                              final categoryCount =
+                                  summary.countsByCategory[entry.key] ?? 0;
+                              final categoryColor =
+                                  _colorForCategory(entry.key);
+                              return Positioned(
+                                left: 10,
+                                width: labelColumnWidth - 10,
+                                top: entry.value + labelSpec.labelTopOffset,
+                                child: IgnorePointer(
+                                  child: Stack(
                                     children: [
-                                      Text(
-                                        _categoryLabel(entry.key),
-                                        style: TextStyle(
-                                          color: _colorForCategory(entry.key)
-                                              .withOpacity(0.72),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w300,
-                                          letterSpacing: 2.4,
+                                      Positioned(
+                                        left: -2,
+                                        top: -7,
+                                        child: Container(
+                                          width: labelColumnWidth + 12,
+                                          height: labelSpec.labelOverlayHeight,
+                                          decoration: const BoxDecoration(
+                                            gradient: RadialGradient(
+                                              center: Alignment(-0.75, -0.08),
+                                              radius: 0.92,
+                                              colors: [
+                                                Color(0x50000000),
+                                                Color(0x20000000),
+                                                Color(0x00000000),
+                                              ],
+                                              stops: [0.0, 0.62, 1.0],
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                      Text(
-                                        loc.starsCount(categoryCount),
-                                        style: TextStyle(
-                                          color: _colorForCategory(entry.key)
-                                              .withOpacity(0.52),
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w300,
-                                          letterSpacing: 2.4,
-                                        ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _categoryLabel(entry.key),
+                                            maxLines:
+                                                labelSpec.categoryMaxLines,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: categoryColor
+                                                  .withOpacity(0.78),
+                                              fontSize:
+                                                  labelSpec.categoryFontSize,
+                                              fontWeight: FontWeight.w300,
+                                              letterSpacing: labelSpec
+                                                  .categoryLetterSpacing,
+                                            ),
+                                          ),
+                                          Text(
+                                            _starsCountLabel(categoryCount),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: categoryColor
+                                                  .withOpacity(0.58),
+                                              fontSize: labelSpec.countFontSize,
+                                              fontWeight: FontWeight.w300,
+                                              letterSpacing:
+                                                  labelSpec.countLetterSpacing,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                );
-                              }),
-                              Positioned(
-                                left: (_selectedPosition?.dx ?? 8)
-                                    .clamp(8.0, constraints.maxWidth - 170.0),
-                                top: ((_selectedPosition?.dy ?? 64) - 56)
-                                    .clamp(8.0, constraints.maxHeight - 90.0),
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 240),
-                                  transitionBuilder: (child, animation) =>
-                                      FadeTransition(
-                                    opacity: animation,
-                                    child: child,
+                                ),
+                              );
+                            }),
+                            if (_weekThoughts.isEmpty)
+                              Center(
+                                child: Text(
+                                  loc.noThoughtsThisWeek,
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.45),
+                                    fontSize: 13,
+                                    letterSpacing: 2.4,
                                   ),
-                                  child: (selected == null ||
-                                          _selectedPosition == null)
-                                      ? const SizedBox.shrink(
-                                          key: ValueKey('empty-preview'))
-                                      : Container(
-                                          key: ValueKey<int>(
-                                              selected.thought.id),
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.42),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                              color: Colors.white
-                                                  .withOpacity(0.18),
-                                              width: 0.7,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _previewText(selected.thought),
-                                            style: const TextStyle(
-                                              color: Color(0xFFE9EEF9),
-                                              fontSize: 11,
-                                              height: 1.25,
-                                              letterSpacing: 2.4,
-                                            ),
-                                          ),
-                                        ),
                                 ),
                               ),
-                              if (_weekThoughts.isEmpty)
-                                Center(
-                                  child: Text(
-                                    loc.noThoughtsThisWeek,
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.45),
-                                      fontSize: 13,
-                                      letterSpacing: 2.4,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
+                          ],
                         );
                       },
                     ),
@@ -678,14 +747,45 @@ class _WeeklySummary {
   });
 }
 
+class _LabelLayoutSpec {
+  final double labelColumnWidth;
+  final double chartLeftGap;
+  final double chartRightPadding;
+  final double categoryFontSize;
+  final double countFontSize;
+  final double categoryLetterSpacing;
+  final double countLetterSpacing;
+  final int categoryMaxLines;
+  final double labelOverlayHeight;
+  final double labelTopOffset;
+
+  const _LabelLayoutSpec({
+    required this.labelColumnWidth,
+    required this.chartLeftGap,
+    required this.chartRightPadding,
+    required this.categoryFontSize,
+    required this.countFontSize,
+    required this.categoryLetterSpacing,
+    required this.countLetterSpacing,
+    required this.categoryMaxLines,
+    required this.labelOverlayHeight,
+    required this.labelTopOffset,
+  });
+}
+
 class _WeeklyGalaxyLayout {
+  static const int _maxConstellationStarsPerCategory = 14;
   final List<_PlottedStar> stars;
   final Map<String, List<_PlottedStar>> grouped;
+  final Set<_PlottedStar> constellationStars;
+  final Set<int> constellationThoughtIds;
   final Map<String, double> layerY;
 
   const _WeeklyGalaxyLayout({
     required this.stars,
     required this.grouped,
+    required this.constellationStars,
+    required this.constellationThoughtIds,
     required this.layerY,
   });
 
@@ -695,6 +795,8 @@ class _WeeklyGalaxyLayout {
     required List<String> layerOrder,
     required double width,
     required double height,
+    required double leftInset,
+    required double rightInset,
     required Color Function(String) colorForCategory,
   }) {
     const topPad = 44.0;
@@ -705,6 +807,9 @@ class _WeeklyGalaxyLayout {
       final ratio = layerOrder.length == 1 ? 0.5 : i / (layerOrder.length - 1);
       yMap[layerOrder[i]] = topPad + usableHeight * ratio;
     }
+    final categoryIndexByName = <String, int>{
+      for (var i = 0; i < layerOrder.length; i++) layerOrder[i]: i,
+    };
 
     final plotted = <_PlottedStar>[];
     for (final thought in thoughts) {
@@ -712,10 +817,32 @@ class _WeeklyGalaxyLayout {
       final dayOffset = thought.createdAt.weekday - DateTime.monday;
       final minutes = thought.createdAt.hour * 60 + thought.createdAt.minute;
       final xRatio = ((dayOffset + (minutes / 1440)).clamp(0.0, 6.9999)) / 7.0;
-      final x = 16 + (width - 32) * xRatio;
+      final graphLeft = leftInset.clamp(0.0, width);
+      final graphRight = rightInset.clamp(0.0, width);
+      final graphWidth = max(1.0, width - graphLeft - graphRight);
+      final x = graphLeft + graphWidth * xRatio;
       final baseline = yMap[category] ?? (topPad + usableHeight * 0.5);
-      final jitter = ((thought.id % 7) - 3) * 2.2;
-      final y = baseline + jitter;
+      final categoryIndex =
+          categoryIndexByName[category] ?? (layerOrder.length ~/ 2);
+      final upperBound = categoryIndex == 0
+          ? topPad + 5
+          : ((yMap[layerOrder[categoryIndex - 1]] ?? baseline) + baseline) *
+              0.5;
+      final lowerBound = categoryIndex == layerOrder.length - 1
+          ? height - bottomPad - 5
+          : (baseline + (yMap[layerOrder[categoryIndex + 1]] ?? baseline)) *
+              0.5;
+      final halfBand = max(6.0, (lowerBound - upperBound) * 0.5);
+      final phase = xRatio * pi * 2;
+      final random = Random(thought.id * 9973 + categoryIndex * 131);
+      final wavePrimary =
+          sin(phase * 1.85 + categoryIndex * 0.9) * halfBand * 0.62;
+      final waveSecondary =
+          cos(phase * 2.1 + (thought.id % 17) * 0.22) * halfBand * 0.14;
+      final localScatter = (random.nextDouble() - 0.5) * halfBand * 0.1;
+      final y = (baseline + wavePrimary + waveSecondary + localScatter)
+          .clamp(upperBound + 3, lowerBound - 3)
+          .toDouble();
 
       plotted.add(
         _PlottedStar(
@@ -737,11 +864,90 @@ class _WeeklyGalaxyLayout {
     for (final star in plotted) {
       grouped.putIfAbsent(star.category, () => <_PlottedStar>[]).add(star);
     }
-    for (final group in grouped.values) {
+    for (final entry in grouped.entries) {
+      final group = entry.value;
       group.sort((a, b) => a.thought.createdAt.compareTo(b.thought.createdAt));
+      _smoothCategoryWave(
+          group, yMap[entry.key] ?? (topPad + usableHeight * 0.5));
     }
 
-    return _WeeklyGalaxyLayout(stars: plotted, grouped: grouped, layerY: yMap);
+    final alignedPlotted = grouped.values.expand((group) => group).toList()
+      ..sort((a, b) => a.thought.createdAt.compareTo(b.thought.createdAt));
+
+    final representativeGroups = <String, List<_PlottedStar>>{
+      for (final c in layerOrder) c: <_PlottedStar>[],
+    };
+    final representativeSet = <_PlottedStar>{};
+    for (final entry in grouped.entries) {
+      final sampled = _pickRepresentativeStars(
+        entry.value,
+        maxStars: _maxConstellationStarsPerCategory,
+      );
+      representativeGroups[entry.key] = sampled;
+      representativeSet.addAll(sampled);
+    }
+
+    return _WeeklyGalaxyLayout(
+      stars: alignedPlotted,
+      grouped: representativeGroups,
+      constellationStars: representativeSet,
+      constellationThoughtIds:
+          representativeSet.map((star) => star.thought.id).toSet(),
+      layerY: yMap,
+    );
+  }
+
+  static List<_PlottedStar> _pickRepresentativeStars(
+    List<_PlottedStar> stars, {
+    required int maxStars,
+  }) {
+    if (stars.length <= maxStars) return stars;
+    if (maxStars <= 1) return <_PlottedStar>[stars.first];
+
+    final selected = <_PlottedStar>[];
+    final used = <int>{};
+    final step = (stars.length - 1) / (maxStars - 1);
+
+    for (var i = 0; i < maxStars; i++) {
+      var index = (i * step).round().clamp(0, stars.length - 1);
+      while (used.contains(index) && index < stars.length - 1) {
+        index++;
+      }
+      if (used.contains(index)) {
+        while (used.contains(index) && index > 0) {
+          index--;
+        }
+      }
+      if (used.add(index)) {
+        selected.add(stars[index]);
+      }
+    }
+
+    selected.sort((a, b) => a.thought.createdAt.compareTo(b.thought.createdAt));
+    return selected;
+  }
+
+  static void _smoothCategoryWave(List<_PlottedStar> stars, double fallbackY) {
+    if (stars.length < 3) return;
+    final originalY = stars.map((s) => s.position.dy).toList(growable: false);
+    final smoothed = List<double>.from(originalY);
+    for (var i = 1; i < stars.length - 1; i++) {
+      smoothed[i] = (originalY[i - 1] * 0.24) +
+          (originalY[i] * 0.56) +
+          (originalY[i + 1] * 0.24);
+    }
+    for (var i = 1; i < stars.length - 1; i++) {
+      final star = stars[i];
+      stars[i] = _PlottedStar(
+        thought: star.thought,
+        category: star.category,
+        color: star.color,
+        position: Offset(
+            star.position.dx, smoothed[i].isNaN ? fallbackY : smoothed[i]),
+        hasInsight: star.hasInsight,
+        hasAction: star.hasAction,
+      );
+    }
   }
 }
 
@@ -797,36 +1003,26 @@ class _WeeklyGalaxyPainter extends CustomPainter {
       final stars = entry.value;
       if (stars.length < 2) continue;
 
-      final path = Path()
-        ..moveTo(stars.first.position.dx, stars.first.position.dy);
-      for (var i = 1; i < stars.length - 1; i++) {
-        final current = stars[i].position;
-        final next = stars[i + 1].position;
-        final mid =
-            Offset((current.dx + next.dx) * 0.5, (current.dy + next.dy) * 0.5);
-        path.quadraticBezierTo(current.dx, current.dy, mid.dx, mid.dy);
-      }
-      final penultimate = stars[stars.length - 2].position;
-      final last = stars.last.position;
-      path.quadraticBezierTo(penultimate.dx, penultimate.dy, last.dx, last.dy);
+      final points = stars.map((s) => s.position).toList(growable: false);
+      final path = _buildRoundedLinearPath(points, cornerRadius: 9.0);
 
       final density = ((stars.length - 2) / 14).clamp(0.0, 1.0);
-      final coreWidth = 2.0 - 1.0 * density;
-      final glowWidth = 4.2 - 2.1 * density;
+      final coreWidth = 1.15 - 0.34 * density;
+      final glowWidth = 2.25 - 0.62 * density;
       final color = stars.first.color;
 
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeWidth = glowWidth
-        ..color = color.withOpacity(0.24)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.2)
+        ..color = color.withOpacity(0.3)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.6)
         ..blendMode = BlendMode.plus;
       final corePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeWidth = coreWidth
-        ..color = color.withOpacity(0.78)
+        ..color = color.withOpacity(0.82)
         ..blendMode = BlendMode.plus;
 
       canvas.drawPath(path, glowPaint);
@@ -834,49 +1030,87 @@ class _WeeklyGalaxyPainter extends CustomPainter {
     }
   }
 
-  void _drawStars(Canvas canvas) {
-    for (final star in layout.stars) {
-      final center = star.position;
-
-      final base = Paint()
-        ..color = star.color.withOpacity(0.92)
-        ..blendMode = BlendMode.plus;
-      canvas.drawCircle(center, 2.0, base);
-
-      final baseGlow = Paint()
-        ..color = star.color.withOpacity(0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
-        ..blendMode = BlendMode.plus;
-      canvas.drawCircle(center, 4.4, baseGlow);
-
-      if (star.hasInsight) {
-        final insightGlow = Paint()
-          ..color = star.color.withOpacity(0.56)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10)
-          ..blendMode = BlendMode.plus;
-        canvas.drawCircle(center, 9.4, insightGlow);
+  Path _buildRoundedLinearPath(List<Offset> points,
+      {required double cornerRadius}) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    if (points.length == 2) {
+      path.lineTo(points.last.dx, points.last.dy);
+      return path;
+    }
+    for (var i = 1; i < points.length - 1; i++) {
+      final prev = points[i - 1];
+      final current = points[i];
+      final next = points[i + 1];
+      final inVec = current - prev;
+      final outVec = next - current;
+      final inLen = inVec.distance;
+      final outLen = outVec.distance;
+      if (inLen < 0.01 || outLen < 0.01) {
+        path.lineTo(current.dx, current.dy);
+        continue;
       }
+      final r = min(cornerRadius, min(inLen, outLen) * 0.34);
+      final cornerStart = current - (inVec / inLen) * r;
+      final cornerEnd = current + (outVec / outLen) * r;
+      path.lineTo(cornerStart.dx, cornerStart.dy);
+      path.quadraticBezierTo(
+          current.dx, current.dy, cornerEnd.dx, cornerEnd.dy);
+    }
+    path.lineTo(points.last.dx, points.last.dy);
+    return path;
+  }
 
-      if (star.hasAction) {
-        final random = Random(star.thought.id);
-        final count =
-            14 + (star.thought.particleSpread * 4).round().clamp(0, 18);
-        final spread = 10 + star.thought.particleSpread * 8;
-        for (var i = 0; i < count; i++) {
-          final angle = random.nextDouble() * pi * 2;
-          final radius = spread * (0.25 + random.nextDouble() * 0.95);
-          final p = Offset(
-            center.dx + cos(angle) * radius,
-            center.dy + sin(angle) * radius * 0.72,
-          );
-          final alpha = (0.14 + random.nextDouble() * 0.34).clamp(0.0, 1.0);
-          final size = 0.7 + random.nextDouble() * 1.6;
-          final particle = Paint()
-            ..color = star.color.withOpacity(alpha)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2)
-            ..blendMode = BlendMode.plus;
-          canvas.drawCircle(p, size, particle);
-        }
+  void _drawStars(Canvas canvas) {
+    for (final star in layout.constellationStars) {
+      _drawConstellationStar(canvas, star);
+    }
+  }
+
+  void _drawConstellationStar(Canvas canvas, _PlottedStar star) {
+    final center = star.position;
+    final sparkle =
+        0.84 + Random(star.thought.id * 53 + 19).nextDouble() * 0.38;
+    final coreRadius = 2.05 * sparkle;
+    final glowRadius = 5.2 * sparkle;
+    final insightRadius = 10.6 * sparkle;
+
+    final base = Paint()
+      ..color = star.color.withOpacity(1.0)
+      ..blendMode = BlendMode.plus;
+    canvas.drawCircle(center, coreRadius, base);
+
+    final baseGlow = Paint()
+      ..color = star.color.withOpacity(0.66)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.9)
+      ..blendMode = BlendMode.plus;
+    canvas.drawCircle(center, glowRadius, baseGlow);
+
+    if (star.hasInsight) {
+      final insightGlow = Paint()
+        ..color = star.color.withOpacity(0.8)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13.8)
+        ..blendMode = BlendMode.plus;
+      canvas.drawCircle(center, insightRadius, insightGlow);
+    }
+
+    if (star.hasAction) {
+      final random = Random(star.thought.id);
+      final count = 14 + (star.thought.particleSpread * 4).round().clamp(0, 18);
+      final spread = 10 + star.thought.particleSpread * 8;
+      for (var i = 0; i < count; i++) {
+        final angle = random.nextDouble() * pi * 2;
+        final radius = spread * (0.25 + random.nextDouble() * 0.95);
+        final p = Offset(
+          center.dx + cos(angle) * radius,
+          center.dy + sin(angle) * radius * 0.72,
+        );
+        final alpha = (0.14 + random.nextDouble() * 0.34).clamp(0.0, 1.0);
+        final size = 0.7 + random.nextDouble() * 1.6;
+        final particle = Paint()
+          ..color = star.color.withOpacity(alpha)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2)
+          ..blendMode = BlendMode.plus;
+        canvas.drawCircle(p, size, particle);
       }
     }
   }
@@ -884,6 +1118,14 @@ class _WeeklyGalaxyPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _WeeklyGalaxyPainter oldDelegate) {
     if (oldDelegate.layout.stars.length != layout.stars.length) return true;
+    if (oldDelegate.layout.constellationThoughtIds.length !=
+        layout.constellationThoughtIds.length) {
+      return true;
+    }
+    if (!oldDelegate.layout.constellationThoughtIds
+        .containsAll(layout.constellationThoughtIds)) {
+      return true;
+    }
     for (var i = 0; i < layout.stars.length; i++) {
       final current = layout.stars[i];
       final old = oldDelegate.layout.stars[i];
@@ -948,7 +1190,9 @@ class _StatConstellationPainter extends CustomPainter {
     final points = <Offset>[];
     for (var i = 0; i < starCount; i++) {
       final angle = (-pi / 2) + (2 * pi * i / starCount);
-      final radiusMod = 0.82 + ((i % 3) * 0.11);
+      final radiusMod = particleMode
+          ? 0.985 + sin((2 * pi * i / starCount) * 2.0) * 0.018
+          : 0.88 + ((i % 3) * 0.08);
       points.add(
         Offset(
           center.dx + cos(angle) * baseRadius * radiusMod,
@@ -996,25 +1240,25 @@ class _StatConstellationPainter extends CustomPainter {
       canvas.drawCircle(point, 1.9, core);
 
       final glow = Paint()
-        ..color = color.withOpacity(particleMode ? 0.3 : 0.58)
+        ..color = color.withOpacity(particleMode ? 0.44 : 0.58)
         ..maskFilter =
-            MaskFilter.blur(BlurStyle.normal, particleMode ? 4.5 : 7.5)
+            MaskFilter.blur(BlurStyle.normal, particleMode ? 5.6 : 7.5)
         ..blendMode = BlendMode.plus;
-      canvas.drawCircle(point, particleMode ? 4.1 : 5.8, glow);
+      canvas.drawCircle(point, particleMode ? 4.7 : 5.8, glow);
 
       if (particleMode) {
-        for (var i = 0; i < 6; i++) {
-          final a = random.nextDouble() * pi * 2;
-          final r = 4 + random.nextDouble() * 9;
+        for (var i = 0; i < 4; i++) {
+          final baseAngle = (2 * pi * i / 4) + random.nextDouble() * 0.18;
+          final r = 4.8 + random.nextDouble() * 4.6;
           final particle = Offset(
-            point.dx + cos(a) * r,
-            point.dy + sin(a) * r * 0.78,
+            point.dx + cos(baseAngle) * r,
+            point.dy + sin(baseAngle) * r * 0.8,
           );
           final paint = Paint()
-            ..color = color.withOpacity(0.22 + random.nextDouble() * 0.3)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.1)
+            ..color = color.withOpacity(0.18 + random.nextDouble() * 0.2)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0)
             ..blendMode = BlendMode.plus;
-          canvas.drawCircle(particle, 0.8 + random.nextDouble(), paint);
+          canvas.drawCircle(particle, 0.65 + random.nextDouble() * 0.7, paint);
         }
       }
     }

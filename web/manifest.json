@@ -1,6 +1,6 @@
 {
-    "name": "thinkgrow",
-    "short_name": "thinkgrow",
+    "name": "Mind Galaxy",
+    "short_name": "Mind Galaxy",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

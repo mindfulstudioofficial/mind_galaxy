@@ -4,13 +4,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive/hive.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/central_star.dart';
 import '../widgets/thought_star.dart';
 import '../models/thought.dart';
 import '../overlays/thought_popup.dart';
+import '../config/ads_config.dart';
 import '../services/app_settings.dart';
+import '../utils/ad_helper.dart';
 import 'input_screen.dart';
+import 'privacy_policy_screen.dart';
 import 'settings_screen.dart';
 import 'weekly_galaxy_screen.dart';
 
@@ -22,6 +27,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  static const String _supportEmail = 'mindful.studio.official@gmail.com';
   static const double _tutorialDragVisualYOffset = 50.0;
   static const int _maxVisibleThoughts = 30;
   static const double _observationSpacing = 140.0;
@@ -50,12 +56,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Offset _tutorialStar = Offset.zero;
   Offset? _tutorialDragTouchOffset;
   bool _isDragging = false;
-  Color _tutorialStarColor = Colors.yellowAccent;
+  Color _tutorialStarColor = Colors.white;
   final bool _flashCenter = false;
   Timer? _refreshTimer;
   Timer? _meteorSpawnTimer;
   Timer? _meteorFrameTimer;
   final List<_MeteorTrail> _meteorTrails = [];
+  RewardedAd? _rewardedAd;
+  bool _isRewardAdLoading = false;
+  bool _isRewardAdShowing = false;
   int _dailyReflectionCount = 0;
 
   @override
@@ -147,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _refreshTimer?.cancel();
     _meteorSpawnTimer?.cancel();
     _meteorFrameTimer?.cancel();
+    _rewardedAd?.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -736,6 +746,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Future<void> _openPrivacyPolicy() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+    );
+  }
+
   void _showFloatingNotice(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -745,13 +762,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showAboutAppDialog() {
+  Future<void> _launchSupportEmail() async {
     final loc = AppLocalizations.of(context)!;
-    showAboutDialog(
-      context: context,
-      applicationName: 'MindGalaxy',
-      applicationLegalese: loc.aboutAppDescription,
+    final uri = Uri(
+      scheme: 'mailto',
+      path: _supportEmail,
+      queryParameters: {'subject': 'MindGalaxy Inquiry'},
     );
+    final launched = await launchUrl(uri);
+    if (!launched && mounted) {
+      _showFloatingNotice('${loc.aboutAppTitle}: $_supportEmail');
+    }
   }
 
   Future<void> _showMeteorSupportDialog() async {
@@ -783,6 +804,108 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
 
     if (approved != true) return;
+    // showDialog の await は pop 完了後に戻るため、ここではルートは既に閉じている。
+    if (!kShowAds) {
+      await _activateMeteorShowerRewardWindow();
+      return;
+    }
+    await _showRewardedMeteorAd();
+  }
+
+  Future<void> _showRewardedMeteorAd() async {
+    if (!kShowAds) return;
+    if (_isRewardAdShowing || _isRewardAdLoading) return;
+    if (_rewardedAd != null) {
+      _presentRewardedAd(_rewardedAd!);
+      return;
+    }
+    await _loadRewardedAd(showWhenReady: true);
+  }
+
+  Future<void> _loadRewardedAd({bool showWhenReady = false}) async {
+    if (!kShowAds) return;
+    if (_isRewardAdLoading || _isRewardAdShowing) return;
+    final loc = AppLocalizations.of(context)!;
+    setState(() {
+      _isRewardAdLoading = true;
+    });
+    _showFloatingNotice('${loc.meteorRewardAd} ${loc.preparing}...');
+
+    await RewardedAd.load(
+      adUnitId: AdHelper.rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          if (!mounted) {
+            ad.dispose();
+            return;
+          }
+          setState(() {
+            _isRewardAdLoading = false;
+            _rewardedAd = ad;
+          });
+          if (showWhenReady) {
+            _presentRewardedAd(ad);
+          }
+        },
+        onAdFailedToLoad: (error) {
+          if (!mounted) return;
+          setState(() {
+            _isRewardAdLoading = false;
+            _rewardedAd = null;
+          });
+          _showFloatingNotice(
+            '${loc.meteorRewardAd}: ${error.message}',
+          );
+        },
+      ),
+    );
+  }
+
+  void _presentRewardedAd(RewardedAd ad) {
+    if (_isRewardAdShowing) return;
+    final loc = AppLocalizations.of(context)!;
+    var earnedReward = false;
+    _isRewardAdShowing = true;
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (_) {
+        if (mounted) {
+          setState(() {});
+        }
+      },
+      onAdDismissedFullScreenContent: (ad) async {
+        ad.dispose();
+        if (!mounted) return;
+        setState(() {
+          _rewardedAd = null;
+          _isRewardAdShowing = false;
+        });
+        if (!earnedReward) {
+          _showFloatingNotice(loc.cancel);
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        if (!mounted) return;
+        setState(() {
+          _rewardedAd = null;
+          _isRewardAdShowing = false;
+        });
+        _showFloatingNotice('${loc.meteorRewardAd}: ${error.message}');
+      },
+    );
+
+    ad.show(
+      onUserEarnedReward: (_, __) async {
+        earnedReward = true;
+        await _activateMeteorShowerRewardWindow();
+      },
+    );
+  }
+
+  Future<void> _activateMeteorShowerRewardWindow() async {
+    final loc = AppLocalizations.of(context)!;
     await AppSettings.setMeteorExpiryTime(
       DateTime.now().add(const Duration(hours: 12)),
     );
@@ -1005,15 +1128,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   style:
                       const TextStyle(color: Colors.white, letterSpacing: 1.1),
                 ),
-                subtitle: Text(
-                  loc.preparing,
-                  style: TextStyle(color: Colors.white.withOpacity(0.58)),
-                ),
                 onTap: () {
                   Navigator.pop(context);
-                  _showFloatingNotice(
-                    "${loc.privacyPolicyTitle} ${loc.preparing}",
-                  );
+                  _openPrivacyPolicy();
                 },
               ),
               ListTile(
@@ -1025,7 +1142,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 onTap: () {
                   Navigator.pop(context);
-                  _showAboutAppDialog();
+                  _launchSupportEmail();
                 },
               ),
             ],
@@ -1482,7 +1599,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Center(
                 child: _buildRoundSpaceButton(
                   icon: Icons.auto_awesome,
-                  onTap: _showMeteorSupportDialog,
+                  onTap: () {
+                    if (_isRewardAdLoading || _isRewardAdShowing) return;
+                    _showMeteorSupportDialog();
+                  },
                   iconChild: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -1506,6 +1626,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
+                      if (_isRewardAdLoading || _isRewardAdShowing)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                     ],
                   ),
                 ),

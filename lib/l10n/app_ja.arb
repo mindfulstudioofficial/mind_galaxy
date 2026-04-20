@@ -84,4 +84,14 @@
   "actionLabel": "行動（Action）",
   "popupActionHint": "行動（小さくてOK）",
   "releaseStarToGalaxy": "星を銀河に放つ"
+  ,
+  "comingSoonLabel": "Coming Soon...",
+  "privacyPolicyLoadFailed": "プライバシーポリシーの読み込みに失敗しました。",
+  "weekdayMonShort": "Mon",
+  "weekdayTueShort": "Tue",
+  "weekdayWedShort": "Wed",
+  "weekdayThuShort": "Thu",
+  "weekdayFriShort": "Fri",
+  "weekdaySatShort": "Sat",
+  "weekdaySunShort": "Sun"
 }

@@ -1,4 +1,4 @@
-package com.example.thinkgrow
+package studio.mindful.mindgalaxy
 
 import io.flutter.embedding.android.FlutterActivity
 

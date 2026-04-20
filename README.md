@@ -1,4 +1,4 @@
-# thinkgrow
+# Mind Galaxy
 
 A new Flutter project.
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'config/ads_config.dart';
 import 'models/thought.dart';
 import 'screens/home_screen.dart';
 import 'services/app_settings.dart';
@@ -15,7 +17,9 @@ const Set<String> _canonicalCategories = {
   'emotion',
   'action',
 };
-const Map<String, String> _legacyCategoryAliasMap = {
+// Migration-only aliases for historical data normalization.
+// NOTE: UI labels are localized via AppLocalizations in each screen.
+const Map<String, String> _legacyCategoryNormalizationAliases = {
   '未来': 'future',
   'future': 'future',
   '↑ 未来': 'future',
@@ -39,20 +43,41 @@ const Map<String, String> _legacyCategoryAliasMap = {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (kShowAds) {
+    await MobileAds.instance.initialize();
+  }
   await Hive.initFlutter();
   Hive.registerAdapter(ThoughtAdapter());
   await Hive.openBox<Thought>('thoughts');
   await Hive.openBox('settings');
   await AppSettings.ensureDefaults();
   await _runCategoryCanonicalMigrationOnce();
+  await _removeLegacyScreenshotSeedThoughtsOnce();
   runApp(const MindGalaxyApp());
+}
+
+/// One-time cleanup of demo `Thought`s left by the removed screenshot-seeding build.
+const String _legacyScreenshotClusterId = 'mg_screenshot_seed';
+const String _legacyScreenshotPurgeDoneKey = 'legacy_mg_screenshot_seed_purged_v1';
+
+Future<void> _removeLegacyScreenshotSeedThoughtsOnce() async {
+  final settings = Hive.box('settings');
+  if (settings.get(_legacyScreenshotPurgeDoneKey, defaultValue: false) as bool) {
+    return;
+  }
+  final box = Hive.box<Thought>('thoughts');
+  for (final t in box.values.toList()) {
+    if (t.clusterId == _legacyScreenshotClusterId) {
+      t.delete();
+    }
+  }
+  await settings.put(_legacyScreenshotPurgeDoneKey, true);
 }
 
 Future<void> _runCategoryCanonicalMigrationOnce() async {
   final settingsBox = Hive.box('settings');
-  final alreadyDone =
-      settingsBox.get(_categoryCanonicalMigrationDoneKey, defaultValue: false)
-          as bool;
+  final alreadyDone = settingsBox.get(_categoryCanonicalMigrationDoneKey,
+      defaultValue: false) as bool;
   if (alreadyDone) return;
 
   final thoughtsBox = Hive.box<Thought>('thoughts');
@@ -76,10 +101,10 @@ String _normalizeCategory(String raw) {
   final lowered = trimmed.toLowerCase();
   if (_canonicalCategories.contains(lowered)) return lowered;
 
-  final mappedByRaw = _legacyCategoryAliasMap[trimmed];
+  final mappedByRaw = _legacyCategoryNormalizationAliases[trimmed];
   if (mappedByRaw != null) return mappedByRaw;
 
-  final mappedByLower = _legacyCategoryAliasMap[lowered];
+  final mappedByLower = _legacyCategoryNormalizationAliases[lowered];
   if (mappedByLower != null) return mappedByLower;
 
   return 'neutral';
@@ -91,7 +116,7 @@ class MindGalaxyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MindGalaxy',
+      title: 'Mind Galaxy',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(),
       home: const HomeScreen(),

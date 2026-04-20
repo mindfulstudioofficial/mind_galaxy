@@ -1,10 +1,14 @@
 import 'dart:math'; // 🚀 【追加】粒子の計算用
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // ← 追加
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../config/ads_config.dart';
 import '../models/thought.dart';
 import '../services/app_settings.dart';
+import '../utils/ad_helper.dart';
 
 class InputScreen extends StatefulWidget {
   final String? initialContent;
@@ -60,6 +64,9 @@ class _InputScreenState extends State<InputScreen>
   late Animation<double> _inputPulseAnim;
 
   bool _isSaving = false;
+  BannerAd? _bannerAd;
+  bool _isBannerAdReady = false;
+  bool _hasBannerAdError = false;
   final Random _random = Random();
   double _starSize = 1.0;
   double _glowIntensity = 1.0;
@@ -127,6 +134,10 @@ class _InputScreenState extends State<InputScreen>
           parent: _inputPulseController, curve: Curves.easeOutCubic),
     );
 
+    if (kShowAds) {
+      _loadBannerAd();
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !widget.focusFollowupOnOpen) return;
       final hasInsight = insightController.text.trim().isNotEmpty;
@@ -151,7 +162,47 @@ class _InputScreenState extends State<InputScreen>
     _saveAnimController.dispose();
     _idleController.dispose(); // 🚀 忘れずにdispose
     _inputPulseController.dispose();
+    _bannerAd?.dispose();
     super.dispose();
+  }
+
+  bool get _supportsMobileAds {
+    if (kIsWeb) return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  void _loadBannerAd() {
+    if (!kShowAds ||
+        !_supportsMobileAds ||
+        AppSettings.isPremium ||
+        _bannerAd != null) {
+      return;
+    }
+
+    _bannerAd = BannerAd(
+      adUnitId: AdHelper.bannerAdUnitId,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) return;
+          setState(() {
+            _isBannerAdReady = true;
+            _hasBannerAdError = false;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          if (!mounted) return;
+          setState(() {
+            _bannerAd = null;
+            _isBannerAdReady = false;
+            _hasBannerAdError = true;
+          });
+        },
+      ),
+    )..load();
   }
 
   // ===============================================
@@ -265,8 +316,13 @@ class _InputScreenState extends State<InputScreen>
     });
   }
 
-  Widget _buildAdPlaceholder({required bool isPremium}) {
+  Widget _buildBottomBannerAd({required bool isPremium}) {
     if (isPremium) return const SizedBox.shrink();
+    if (!kShowAds) return const SizedBox.shrink();
+    if (!_supportsMobileAds) return const SizedBox(height: 52);
+    if (_bannerAd == null && !_hasBannerAdError) {
+      _loadBannerAd();
+    }
     return Container(
       height: 52,
       width: double.infinity,
@@ -275,15 +331,15 @@ class _InputScreenState extends State<InputScreen>
         color: Colors.transparent,
       ),
       alignment: Alignment.center,
-      child: Text(
-        'Ad Space',
-        style: TextStyle(
-          color: Colors.grey.withOpacity(0.48),
-          letterSpacing: 1.1,
-          fontSize: 12,
-          fontWeight: FontWeight.w300,
-        ),
-      ),
+      child: _isBannerAdReady && _bannerAd != null
+          ? AdWidget(ad: _bannerAd!)
+          : _hasBannerAdError
+              ? const SizedBox.shrink()
+              : const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
     );
   }
 
@@ -302,7 +358,7 @@ class _InputScreenState extends State<InputScreen>
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final fixedStarTop = isBulkMode
         ? (keyboardVisible ? 6.0 : 14.0)
-        : (keyboardVisible ? 14.0 : 22.0);
+        : (keyboardVisible ? 38.0 : 46.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -574,7 +630,7 @@ class _InputScreenState extends State<InputScreen>
                           padding: EdgeInsets.only(
                             bottom: 8 + bottomSafeInset,
                           ),
-                          child: _buildAdPlaceholder(
+                          child: _buildBottomBannerAd(
                             isPremium: AppSettings.isPremium,
                           ),
                         );

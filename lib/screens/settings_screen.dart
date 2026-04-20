@@ -4,15 +4,6 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  void _showPreparingNotice(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
@@ -35,39 +26,43 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
         children: [
-          ListTile(
-            leading: const Icon(Icons.cloud_sync, color: Colors.white70),
-            title: Text(
-              loc.accountSyncTitle,
-              style: TextStyle(color: textColor, letterSpacing: 1.1),
+          // Reserved for future release:
+          // - Account / Sync
+          // - Premium Plan
+          // Keeping these blocks commented-out for planned implementation.
+          //
+          // ListTile(
+          //   leading: const Icon(Icons.cloud_sync, color: Colors.white70),
+          //   title: Text(
+          //     loc.accountSyncTitle,
+          //     style: TextStyle(color: textColor, letterSpacing: 1.1),
+          //   ),
+          //   subtitle: Text(
+          //     loc.futureLoginFeature,
+          //     style: TextStyle(color: Colors.white.withOpacity(0.55)),
+          //   ),
+          //   onTap: () {},
+          // ),
+          // ListTile(
+          //   leading: const Icon(Icons.workspace_premium, color: Colors.white70),
+          //   title: Text(
+          //     loc.premiumPlanTitle,
+          //     style: TextStyle(color: textColor, letterSpacing: 1.1),
+          //   ),
+          //   subtitle: Text(
+          //     loc.futureBillingPlan,
+          //     style: TextStyle(color: Colors.white.withOpacity(0.55)),
+          //   ),
+          //   onTap: () {},
+          // ),
+          const SizedBox(height: 6),
+          Text(
+            loc.comingSoonLabel,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textColor.withOpacity(0.48),
+              letterSpacing: 0.6,
             ),
-            subtitle: Text(
-              loc.futureLoginFeature,
-              style: TextStyle(color: Colors.white.withOpacity(0.55)),
-            ),
-            onTap: () {
-              _showPreparingNotice(
-                context,
-                "${loc.accountSyncTitle} ${loc.preparing}",
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.workspace_premium, color: Colors.white70),
-            title: Text(
-              loc.premiumPlanTitle,
-              style: TextStyle(color: textColor, letterSpacing: 1.1),
-            ),
-            subtitle: Text(
-              loc.futureBillingPlan,
-              style: TextStyle(color: Colors.white.withOpacity(0.55)),
-            ),
-            onTap: () {
-              _showPreparingNotice(
-                context,
-                "${loc.premiumPlanTitle} ${loc.preparing}",
-              );
-            },
           ),
         ],
       ),
