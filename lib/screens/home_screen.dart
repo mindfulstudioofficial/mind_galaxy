@@ -15,7 +15,6 @@ import '../config/ads_config.dart';
 import '../services/app_settings.dart';
 import '../utils/ad_helper.dart';
 import 'input_screen.dart';
-import 'privacy_policy_screen.dart';
 import 'settings_screen.dart';
 import 'weekly_galaxy_screen.dart';
 
@@ -28,6 +27,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const String _supportEmail = 'mindful.studio.official@gmail.com';
+  static const String _privacyPolicyUrl =
+      'https://docs.google.com/document/d/1o1Y5qaTh8Lx6rJfqkgvrwsdnkDm3OkltABnAD0VeU6M/edit?usp=sharing';
   static const double _tutorialDragVisualYOffset = 50.0;
   static const int _maxVisibleThoughts = 30;
   static const double _observationSpacing = 140.0;
@@ -747,10 +748,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _openPrivacyPolicy() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
+    final loc = AppLocalizations.of(context)!;
+    final launched = await launchUrl(
+      Uri.parse(_privacyPolicyUrl),
+      mode: LaunchMode.externalApplication,
     );
+    if (!launched && mounted) {
+      _showFloatingNotice(loc.privacyPolicyLoadFailed);
+    }
   }
 
   void _showFloatingNotice(String message) {

@@ -37,7 +37,6 @@ flutter:
   generate: true
   assets:
     - assets/icon/app_icon.png
-    - assets/docs/privacy_policy.md
 
 flutter_launcher_icons:
   android: true
