@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:mindgalaxy/l10n/app_localizations.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -230,12 +230,12 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
             children: [
               Expanded(
                 child: Align(
-                  alignment: const Alignment(0, -0.16),
+                  alignment: Alignment.center,
                   child: Transform.scale(
-                    scale: compact ? 1.45 : 1.72,
+                    scale: compact ? 1.12 : 1.28,
                     child: SizedBox(
-                      height: compact ? 82 : 118,
-                      width: compact ? 82 : 118,
+                      height: compact ? 74 : 102,
+                      width: compact ? 74 : 102,
                       child: _WeeklyDensityOrb(
                         count: summary.totalThoughts,
                         color: _statsEmerald,
@@ -244,6 +244,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                   ),
                 ),
               ),
+              SizedBox(height: compact ? 10 : 14),
               Text(
                 AppLocalizations.of(context)!.weeklyDensity,
                 style: TextStyle(

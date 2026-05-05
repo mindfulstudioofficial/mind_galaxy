@@ -1,3 +1,7 @@
+# Python (local tooling / accidental venv in repo root)
+.venv/
+venv/
+
 # Miscellaneous
 *.class
 *.log
@@ -5,9 +9,11 @@
 *.swp
 .DS_Store
 .atom/
+.build/
 .buildlog/
 .history
 .svn/
+.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -52,6 +58,9 @@ app.*.map.json
 # iOS / macOS dependency artifacts
 /ios/Pods/
 /macos/Pods/
+
+# Xcode — user-specific workspace state (can pin old simulators/machines)
+**/ios/**/*.xcuserdata/
 
 # Optional: local generated outputs
 /coverage/

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'config/ads_config.dart';
 import 'models/thought.dart';
 import 'screens/home_screen.dart';
 import 'services/app_settings.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:mindgalaxy/l10n/app_localizations.dart';
+import 'utils/admob_test_device_debug.dart';
 
 const String _categoryCanonicalMigrationDoneKey =
     'migration_category_canonical_v1_done';
@@ -43,9 +43,10 @@ const Map<String, String> _legacyCategoryNormalizationAliases = {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (kShowAds) {
-    await MobileAds.instance.initialize();
-  }
+  // iOS requires GADApplicationIdentifier in Info.plist; the native SDK still
+  // validates on launch even when Dart-side ad units are gated by kShowAds.
+  await MobileAds.instance.initialize();
+  await AdMobTestDeviceDebug.logDiagnostics();
   await Hive.initFlutter();
   Hive.registerAdapter(ThoughtAdapter());
   await Hive.openBox<Thought>('thoughts');

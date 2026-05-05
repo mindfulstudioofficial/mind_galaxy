@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:mindgalaxy/l10n/app_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive/hive.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1237,12 +1237,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return "${dt.year}.$m";
   }
 
-  String _truncateObservationLine(String value, {int maxChars = 20}) {
-    final text = value.trim();
-    if (text.length <= maxChars) return text;
-    return "${text.substring(0, maxChars)}...";
-  }
-
   List<Widget> _buildObservationStars(Size size) {
     final centerX = size.width / 2;
     final centerY = size.height * 0.5;
@@ -1298,41 +1292,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
 
       if (focusFactor > 0) {
-        final thoughtLine = _truncateObservationLine(thought.content);
+        final thoughtTrim = thought.content.trim();
         final insightRaw = thought.insight?.trim() ?? "";
         final actionRaw = thought.action?.trim() ?? "";
-        final insightLine = insightRaw.isEmpty
-            ? ""
-            : "💡 ${_truncateObservationLine(insightRaw)}";
-        final actionLine = actionRaw.isEmpty
-            ? ""
-            : "🏃 ${_truncateObservationLine(actionRaw)}";
+
+        const thoughtStyle = TextStyle(
+          color: Color(0xFFEAEAEA),
+          fontSize: 16,
+          height: 1.34,
+          letterSpacing: 0.15,
+          fontWeight: FontWeight.w300,
+          shadows: [
+            Shadow(
+              color: Color(0x80000000),
+              blurRadius: 4.0,
+              offset: Offset(1.0, 1.0),
+            ),
+          ],
+        );
+        const maxObservationTextLines = 3;
+        const blockGap = 6.0;
+        const thoughtBlockMaxH = 16.0 * 1.34 * maxObservationTextLines;
 
         final textLines = <Widget>[
-          if (thoughtLine.isNotEmpty)
+          if (thoughtTrim.isNotEmpty)
             Text(
-              thoughtLine,
-              maxLines: 1,
+              thoughtTrim,
+              maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFEAEAEA),
-                fontSize: 16,
-                height: 1.34,
-                letterSpacing: 0.15,
-                fontWeight: FontWeight.w300,
-                shadows: [
-                  Shadow(
-                    color: Color(0x80000000),
-                    blurRadius: 4.0,
-                    offset: Offset(1.0, 1.0),
-                  ),
-                ],
-              ),
+              style: thoughtStyle,
             ),
-          if (insightLine.isNotEmpty)
+          if (insightRaw.isNotEmpty) ...[
+            if (thoughtTrim.isNotEmpty) const SizedBox(height: blockGap),
             Text(
-              insightLine,
-              maxLines: 1,
+              '💡 $insightRaw',
+              maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: const Color(0xFFDDE7EF).withOpacity(0.78),
@@ -1349,10 +1343,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ],
               ),
             ),
-          if (actionLine.isNotEmpty)
+          ],
+          if (actionRaw.isNotEmpty) ...[
+            if (thoughtTrim.isNotEmpty || insightRaw.isNotEmpty)
+              const SizedBox(height: blockGap),
             Text(
-              actionLine,
-              maxLines: 1,
+              '🏃 $actionRaw',
+              maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: const Color(0xFFBFC5CC).withOpacity(0.68),
@@ -1369,10 +1366,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ],
               ),
             ),
+          ],
         ];
-        final lineCount = textLines.length;
-        final blockHeight =
-            lineCount == 1 ? 22.0 : (lineCount == 2 ? 38.0 : 54.0);
+        double blockHeight = 0;
+        if (thoughtTrim.isNotEmpty) blockHeight += thoughtBlockMaxH;
+        if (insightRaw.isNotEmpty) {
+          blockHeight +=
+              14.2 * 1.32 * maxObservationTextLines;
+          if (thoughtTrim.isNotEmpty) blockHeight += blockGap;
+        }
+        if (actionRaw.isNotEmpty) {
+          blockHeight += 13.6 * 1.32 * maxObservationTextLines;
+          if (thoughtTrim.isNotEmpty || insightRaw.isNotEmpty) {
+            blockHeight += blockGap;
+          }
+        }
+        blockHeight += 8.0;
         final labelLeft = x + 20;
         final maxLabelWidth = max(60.0, size.width - labelLeft - 12);
         widgets.add(
