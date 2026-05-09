@@ -40,11 +40,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final List<Thought> _observationThoughts = [];
   bool _isObservationMode = false;
   double _observationScrollOffset = 0.0;
-  List<Thought> get _revisitReadyThoughts {
-    if (!_hasReflectionQuota()) return const [];
-    return _reflectionCandidates(DateTime.now());
-  }
-
   int _thoughtIdCounter = 0;
 
   Offset _deleteHolePosition = Offset.zero; // 右上のゴミ箱用
@@ -78,22 +73,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (isTutorialDone) {
       _tutorialStep = 7; // 完了済みのステップへ飛ばす
     }
-    final allThoughts = <Thought>[];
-    for (var t in box.values) {
-      if (t.isArchived) continue;
-      final normalized = _normalizeCategory(t.category);
-      if (normalized != t.category) {
-        t.category = normalized;
-        unawaited(t.save());
-      }
-      allThoughts.add(t);
-      if (t.id >= _thoughtIdCounter) _thoughtIdCounter = t.id + 1;
-    }
+    final allThoughts = _loadThoughtsFromBox(box);
     _observationThoughts
       ..clear()
       ..addAll(allThoughts..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
     allThoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _thoughts.addAll(allThoughts.take(_maxVisibleThoughts));
+    _thoughts
+      ..clear()
+      ..addAll(allThoughts.take(_maxVisibleThoughts));
     _loadDailyReflectionState(settingsBox);
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
@@ -134,6 +121,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   String _normalizeCategory(String c) {
     if (_validCategories.contains(c)) return c;
     return 'neutral';
+  }
+
+  List<Thought> _loadThoughtsFromBox(Box<Thought> box) {
+    final allThoughts = <Thought>[];
+    for (final t in box.values) {
+      if (t.isArchived) continue;
+      final normalized = _normalizeCategory(t.category);
+      if (normalized != t.category) {
+        t.category = normalized;
+        unawaited(t.save());
+      }
+      allThoughts.add(t);
+      if (t.id >= _thoughtIdCounter) _thoughtIdCounter = t.id + 1;
+    }
+    return allThoughts;
   }
 
   Future<void> _clampThoughtsToViewport(Size size) async {
@@ -195,6 +197,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _dailyReflectionCount = 0;
     }
     return _dailyReflectionCount < _dailyReflectionLimit(now);
+  }
+
+  int _remainingReflectionQuota(DateTime now) {
+    final settingsBox = Hive.box('settings');
+    final todayKey = _dayKey(now);
+    final storedDay = settingsBox.get('reflectionDailyCountDay') as String?;
+    final storedCount =
+        settingsBox.get('reflectionDailyCount', defaultValue: 0) as int;
+    final todaysCount = storedDay == todayKey ? storedCount : 0;
+    return max(0, _dailyReflectionLimit(now) - todaysCount);
   }
 
   Future<void> _recordReflectionTriggered() async {
@@ -521,6 +533,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_tutorialStep >= 6) return const SizedBox.shrink();
     final size = MediaQuery.of(context).size;
     final loc = AppLocalizations.of(context)!;
+    // Shorter phones (e.g. iPhone 8 Plus ~736pt): step-3 caption, quadrant hints, and
+    // wrapped English lines share the vertical band—keep caption high and hints lower;
+    // avoid lifting "Up: Future" into the caption (was translate -12).
+    final tutorialCompactLayout = size.height <= 760;
+    final tutorialStep3TextAlignment = tutorialCompactLayout
+        ? const Alignment(0, -0.72)
+        : const Alignment(0, -0.48);
+    final tutorialDragHintsTop =
+        tutorialCompactLayout ? size.height * 0.27 : 120.0;
 
     return Positioned.fill(
       child: Stack(
@@ -585,65 +606,65 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _buildTutorialText(loc.tutorialStep2)),
           if (_tutorialStep == 3)
             Align(
-                alignment: const Alignment(0, -0.45),
+                alignment: tutorialStep3TextAlignment,
                 child: _buildTutorialText(loc.tutorialStep3)),
           if (_isDragging)
             Positioned(
               left: 0,
               right: 0,
-              top: 114,
+              top: tutorialDragHintsTop,
               child: IgnorePointer(
-                child: SizedBox(
-                  width: 340,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Transform.translate(
-                        offset: const Offset(0, -12),
-                        child: Text(
+                child: Center(
+                  child: SizedBox(
+                    width: 340,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
                           loc.tutorialFuture,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.blue,
                             fontSize: 19,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Text(
-                            loc.tutorialEmotion,
-                            style: const TextStyle(
-                              color: Colors.pink,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w500,
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Text(
+                              loc.tutorialEmotion,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.pink,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          Text(
-                            loc.tutorialAction,
-                            style: const TextStyle(
-                              color: Colors.yellow,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w500,
+                            Text(
+                              loc.tutorialAction,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.yellow,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Transform.translate(
-                        offset: const Offset(0, 12),
-                        child: Text(
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
                           loc.tutorialPast,
+                          textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: Colors.purple,
                             fontSize: 19,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -745,6 +766,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       context,
       MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
+    if (!mounted) return;
   }
 
   Future<void> _openPrivacyPolicy() async {
@@ -1047,6 +1069,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required VoidCallback onTap,
     bool active = false,
     double size = 56,
+    double iconSize = 24,
     Widget? iconChild,
   }) {
     return GestureDetector(
@@ -1082,7 +1105,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: iconChild ??
             Icon(
               icon,
-              size: 24,
+              size: iconSize,
               color: active ? Colors.lightBlueAccent : Colors.white70,
             ),
       ),
@@ -1091,6 +1114,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Drawer _buildMainDrawer() {
     final loc = AppLocalizations.of(context)!;
+    const profileName = 'You';
+    const profileEmoji = '🙂';
     return Drawer(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -1108,6 +1133,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: SafeArea(
           child: Column(
             children: [
+              const SizedBox(height: 8),
+              Container(
+                margin: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.12), width: 0.8),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: Colors.white.withOpacity(0.14),
+                      child: Text(
+                        profileEmoji,
+                        style: const TextStyle(fontSize: 18),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        profileName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          letterSpacing: 0.6,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.settings, color: Colors.white70),
@@ -1295,6 +1355,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final thoughtTrim = thought.content.trim();
         final insightRaw = thought.insight?.trim() ?? "";
         final actionRaw = thought.action?.trim() ?? "";
+        final placeLabelOnLeft = x > (size.width * 0.5);
+        final textAlign = placeLabelOnLeft ? TextAlign.right : TextAlign.left;
+        final crossAxisAlignment = placeLabelOnLeft
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start;
 
         const thoughtStyle = TextStyle(
           color: Color(0xFFEAEAEA),
@@ -1318,6 +1383,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           if (thoughtTrim.isNotEmpty)
             Text(
               thoughtTrim,
+              textAlign: textAlign,
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: thoughtStyle,
@@ -1326,6 +1392,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (thoughtTrim.isNotEmpty) const SizedBox(height: blockGap),
             Text(
               '💡 $insightRaw',
+              textAlign: textAlign,
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1349,6 +1416,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               const SizedBox(height: blockGap),
             Text(
               '🏃 $actionRaw',
+              textAlign: textAlign,
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -1371,8 +1439,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         double blockHeight = 0;
         if (thoughtTrim.isNotEmpty) blockHeight += thoughtBlockMaxH;
         if (insightRaw.isNotEmpty) {
-          blockHeight +=
-              14.2 * 1.32 * maxObservationTextLines;
+          blockHeight += 14.2 * 1.32 * maxObservationTextLines;
           if (thoughtTrim.isNotEmpty) blockHeight += blockGap;
         }
         if (actionRaw.isNotEmpty) {
@@ -1382,8 +1449,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           }
         }
         blockHeight += 8.0;
-        final labelLeft = x + 20;
-        final maxLabelWidth = max(60.0, size.width - labelLeft - 12);
+        const horizontalMargin = 12.0;
+        const starLabelGap = 24.0;
+        final labelSideSpace = placeLabelOnLeft
+            ? max(0.0, x - starLabelGap - horizontalMargin)
+            : max(0.0, size.width - (x + starLabelGap) - horizontalMargin);
+        final maxLabelWidth = labelSideSpace.clamp(60.0, size.width * 0.68);
+        final labelLeftRaw = placeLabelOnLeft
+            ? x - starLabelGap - maxLabelWidth
+            : x + starLabelGap;
+        final labelLeft = labelLeftRaw.clamp(
+          horizontalMargin,
+          size.width - horizontalMargin - maxLabelWidth,
+        );
         widgets.add(
           Positioned(
             left: labelLeft,
@@ -1396,7 +1474,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   opacity: 0.2 + (0.75 * focusFactor),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: crossAxisAlignment,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: textLines,
                   ),
@@ -1431,11 +1509,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    // 再訪待ちの星を数える
-    final revisitCount = _revisitReadyThoughts.length;
+    // 赤バッジは「候補件数」ではなく「本日あと何回発火できるか」を表示する。
+    final now = DateTime.now();
+    final revisitCandidates = _reflectionCandidates(now);
+    final revisitCount =
+        revisitCandidates.isEmpty ? 0 : _remainingReflectionQuota(now);
 
     final size = MediaQuery.of(context).size;
-    final bottomControlOffset = MediaQuery.of(context).viewPadding.bottom + 16;
+    final viewPadding = MediaQuery.of(context).viewPadding;
+    final isCompactHeight = size.height <= 740;
+    final topControlOffset = viewPadding.top + (isCompactHeight ? 8 : 12);
+    final bottomControlOffset =
+        viewPadding.bottom + (isCompactHeight ? 10 : 16);
+    final controlButtonSize = isCompactHeight ? 50.0 : 56.0;
+    final controlIconSize = isCompactHeight ? 21.0 : 24.0;
     _deleteHolePosition = Offset(size.width - 80, 80); // 右上（ブラックホール削除）
     _revisitCenterPosition = Offset(size.width / 2, size.height / 2); // 中央（再訪）
 
@@ -1538,7 +1625,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     blackHolePosition: _deleteHolePosition,
                     onDragEnd: () => _checkBlackHoleSuckIn(thought),
                     revisitPosition: _revisitCenterPosition,
-                    isTarget: _revisitReadyThoughts.contains(thought),
+                    isTarget: revisitCandidates.contains(thought),
                     suppressDetailPopup:
                         _tutorialStep < 6 || _isObservationMode,
                     onThoughtPersisted: () => setState(() {}),
@@ -1554,10 +1641,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           _tutorialStarColor = _getCategoryColor(newCategory);
                         }
                       });
-                      // 2. 🚀 モデル自身の保存メソッドを直接呼ぶ (非同期で確実に保存)
-                      await thought.save();
-                      // 3.念のため全体保存も走らせる
-                      _persistAllThoughts();
+                      // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
+                      if (thought.isInBox) {
+                        await thought.save();
+                        // 3. 念のため全体保存も走らせる
+                        _persistAllThoughts();
+                      }
 
                       debugPrint("Category saved: $newCategory");
                     },
@@ -1574,11 +1663,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
             Positioned(
               left: 16,
-              top: 56,
+              top: topControlOffset,
               child: Builder(
                 builder: (context) => _buildRoundSpaceButton(
                   icon: Icons.menu,
                   onTap: () => Scaffold.of(context).openDrawer(),
+                  size: controlButtonSize,
+                  iconSize: controlIconSize,
                 ),
               ),
             ),
@@ -1587,11 +1678,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Positioned(
                 left: 0,
                 right: 0,
-                top: 56,
+                top: topControlOffset,
                 child: Center(
                   child: _buildRoundSpaceButton(
                     icon: Icons.insights,
                     onTap: _openWeeklyGalaxy,
+                    size: controlButtonSize,
+                    iconSize: controlIconSize,
                   ),
                 ),
               ),
@@ -1603,6 +1696,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 icon: Icons.travel_explore,
                 active: _isObservationMode,
                 onTap: () => _toggleObservationMode(size.height),
+                size: controlButtonSize,
+                iconSize: controlIconSize,
               ),
             ),
 
@@ -1617,12 +1712,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     if (_isRewardAdLoading || _isRewardAdShowing) return;
                     _showMeteorSupportDialog();
                   },
+                  size: controlButtonSize,
+                  iconSize: controlIconSize,
                   iconChild: Stack(
                     alignment: Alignment.center,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.auto_awesome,
-                        size: 24,
+                        size: controlIconSize,
                         color: Colors.white70,
                       ),
                       Positioned(
@@ -1659,6 +1756,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _buildRoundSpaceButton(
                   icon: Icons.add,
                   onTap: _openFabInput,
+                  size: controlButtonSize,
+                  iconSize: controlIconSize,
                 ),
               ),
 
@@ -1710,9 +1809,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 🚀 すべての思考星の状態をHiveに上書き保存するメソッド
   void _persistAllThoughts() {
     try {
-      // 🚀 box の一行を消して、直接各星に「自分を保存して」と命令する
+      // Hive 管理下の星だけ保存する。デモデータは box 外オブジェクト。
       for (var thought in _thoughts) {
-        thought.save();
+        if (thought.isInBox) {
+          thought.save();
+        }
       }
       debugPrint("Saved latest state for ${_thoughts.length} stars");
     } catch (e) {
@@ -1738,7 +1839,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _thoughts.remove(thought);
         _observationThoughts.remove(thought);
       });
-      await thought.delete(); // Hiveから削除
+      if (thought.isInBox) {
+        await thought.delete(); // Hiveから削除
+      }
 
       HapticFeedback.heavyImpact(); // 「消した」感触を手に伝える
     }

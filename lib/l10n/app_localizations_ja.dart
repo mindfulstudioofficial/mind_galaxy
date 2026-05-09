@@ -199,7 +199,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String starsCount(int count) {
-    return '星 $count 個';
+    return '星 $count';
   }
 
   @override

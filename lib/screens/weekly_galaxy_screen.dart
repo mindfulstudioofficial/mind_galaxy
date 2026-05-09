@@ -95,7 +95,6 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     final now = DateTime.now();
     final weekStart = _startOfWeek(now);
     final weekEnd = weekStart.add(const Duration(days: 7));
-
     final thoughts = box.values
         .where((t) =>
             !t.isArchived &&
@@ -182,6 +181,19 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     );
   }
 
+  bool _useCinematicWeeklyRendering() {
+    if (_weekThoughts.length < 180) return false;
+
+    final countsByCategory = <String, int>{for (final c in _layerOrder) c: 0};
+    for (final thought in _weekThoughts) {
+      final c = _classifyThought(thought);
+      countsByCategory[c] = (countsByCategory[c] ?? 0) + 1;
+    }
+    final denseCategoryCount =
+        countsByCategory.values.where((count) => count >= 30).length;
+    return denseCategoryCount >= 3;
+  }
+
   int _weeklyDensityPercent(int totalThoughts) {
     const targetThoughtsPerWeek = 28;
     return ((totalThoughts / targetThoughtsPerWeek) * 100)
@@ -227,6 +239,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
             ),
           ),
           Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 child: Align(
@@ -247,6 +260,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
               SizedBox(height: compact ? 10 : 14),
               Text(
                 AppLocalizations.of(context)!.weeklyDensity,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.72),
                   fontSize: compact ? 9 : 11,
@@ -257,6 +271,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
               const SizedBox(height: 5),
               Text(
                 '$densityPercent%',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _statsEmerald.withOpacity(0.78),
                   fontSize: compact ? 12 : 14,
@@ -454,10 +469,10 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 _starsCountLabel(count),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _statsEmerald.withOpacity(0.62),
-                  fontSize: compact ? 8 : 9,
-                  letterSpacing: 2.0,
-                  fontWeight: FontWeight.w300,
+                  color: _statsEmerald.withOpacity(0.78),
+                  fontSize: compact ? 12 : 14,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 16),
@@ -535,6 +550,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
     final summary = _buildWeeklySummary();
+    final useCinematicRendering = _useCinematicWeeklyRendering();
 
     return Scaffold(
       backgroundColor: const Color(0xFF04060D),
@@ -593,6 +609,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                           leftInset: chartLeftInset,
                           rightInset: chartRightPadding,
                           colorForCategory: _colorForCategory,
+                          isDemoMode: useCinematicRendering,
                         );
                         return Stack(
                           children: [
@@ -782,12 +799,20 @@ class _WeeklyGalaxyLayout {
   final Set<int> constellationThoughtIds;
   final Map<String, double> layerY;
 
+  /// When true, constellation lines use [demoCurveAnchors] and stars use lightweight painting.
+  final bool isDemoGalaxy;
+
+  /// Monotonic X anchor points per category → smooth spline, no spaghetti crossings.
+  final Map<String, List<Offset>>? demoCurveAnchors;
+
   const _WeeklyGalaxyLayout({
     required this.stars,
     required this.grouped,
     required this.constellationStars,
     required this.constellationThoughtIds,
     required this.layerY,
+    this.isDemoGalaxy = false,
+    this.demoCurveAnchors,
   });
 
   static _WeeklyGalaxyLayout build({
@@ -799,7 +824,20 @@ class _WeeklyGalaxyLayout {
     required double leftInset,
     required double rightInset,
     required Color Function(String) colorForCategory,
+    bool isDemoMode = false,
   }) {
+    if (isDemoMode) {
+      return _buildDemoWeeklyGalaxyLayout(
+        thoughts: thoughts,
+        categoryResolver: categoryResolver,
+        layerOrder: layerOrder,
+        width: width,
+        height: height,
+        leftInset: leftInset,
+        rightInset: rightInset,
+        colorForCategory: colorForCategory,
+      );
+    }
     const topPad = 44.0;
     const bottomPad = 28.0;
     final usableHeight = max(1.0, height - topPad - bottomPad);
@@ -895,6 +933,122 @@ class _WeeklyGalaxyLayout {
       constellationThoughtIds:
           representativeSet.map((star) => star.thought.id).toSet(),
       layerY: yMap,
+      isDemoGalaxy: false,
+      demoCurveAnchors: null,
+    );
+  }
+
+  /// Screenshot-oriented layout: dense star field per band + single smooth S-curve per category.
+  static _WeeklyGalaxyLayout _buildDemoWeeklyGalaxyLayout({
+    required List<Thought> thoughts,
+    required String Function(Thought) categoryResolver,
+    required List<String> layerOrder,
+    required double width,
+    required double height,
+    required double leftInset,
+    required double rightInset,
+    required Color Function(String) colorForCategory,
+  }) {
+    const topPad = 44.0;
+    const bottomPad = 28.0;
+    final usableHeight = max(1.0, height - topPad - bottomPad);
+    final yMap = <String, double>{};
+    for (var i = 0; i < layerOrder.length; i++) {
+      final ratio = layerOrder.length == 1 ? 0.5 : i / (layerOrder.length - 1);
+      yMap[layerOrder[i]] = topPad + usableHeight * ratio;
+    }
+    final categoryIndexByName = <String, int>{
+      for (var i = 0; i < layerOrder.length; i++) layerOrder[i]: i,
+    };
+
+    final graphLeft = leftInset.clamp(0.0, width);
+    final graphRight = rightInset.clamp(0.0, width);
+    final graphWidth = max(1.0, width - graphLeft - graphRight);
+
+    const anchorCount = 56;
+    final demoAnchors = <String, List<Offset>>{};
+    final plotted = <_PlottedStar>[];
+
+    final phaseByCategory = <String, double>{
+      'future': 0.15,
+      'emotion': 1.05,
+      'action': 1.95,
+      'past': 0.65,
+      'neutral': 1.4,
+    };
+
+    for (final cat in layerOrder) {
+      final catThoughts = thoughts
+          .where((t) => categoryResolver(t) == cat)
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      final baseline = yMap[cat] ?? (topPad + usableHeight * 0.5);
+      final categoryIndex =
+          categoryIndexByName[cat] ?? (layerOrder.length ~/ 2);
+      final upperBound = categoryIndex == 0
+          ? topPad + 6
+          : ((yMap[layerOrder[categoryIndex - 1]] ?? baseline) + baseline) *
+              0.5;
+      final lowerBound = categoryIndex == layerOrder.length - 1
+          ? height - bottomPad - 6
+          : (baseline + (yMap[layerOrder[categoryIndex + 1]] ?? baseline)) *
+              0.5;
+      final halfBand = max(10.0, (lowerBound - upperBound) * 0.5);
+      final phase = phaseByCategory[cat] ?? 0.0;
+
+      double yOnCurve(double xNorm) {
+        final wobble = sin(2 * pi * xNorm * 0.88 + phase) * halfBand * 0.52;
+        return (baseline + wobble).clamp(upperBound + 5, lowerBound - 5);
+      }
+
+      final anchors = <Offset>[];
+      for (var j = 0; j < anchorCount; j++) {
+        final xNorm = j / (anchorCount - 1);
+        final x = graphLeft + graphWidth * xNorm;
+        final y = yOnCurve(xNorm);
+        anchors.add(Offset(x, y));
+      }
+      demoAnchors[cat] = anchors;
+
+      for (var i = 0; i < catThoughts.length; i++) {
+        final t = catThoughts[i];
+        final xNorm = (i + 0.5) / catThoughts.length;
+        final xBase = graphLeft + graphWidth * xNorm;
+        final yBase = yOnCurve(xNorm);
+        final rnd = Random(t.id * 1315423 + cat.hashCode);
+        final x = (xBase + (rnd.nextDouble() - 0.5) * 12)
+            .clamp(graphLeft + 3, graphLeft + graphWidth - 3);
+        final y = (yBase + (rnd.nextDouble() - 0.5) * halfBand * 0.44)
+            .clamp(upperBound + 3, lowerBound - 3);
+
+        plotted.add(
+          _PlottedStar(
+            thought: t,
+            category: cat,
+            color: colorForCategory(cat),
+            position: Offset(x, y),
+            hasInsight: t.insight != null && t.insight!.trim().isNotEmpty,
+            hasAction: t.action != null && t.action!.trim().isNotEmpty,
+          ),
+        );
+      }
+    }
+
+    plotted.sort((a, b) => a.thought.createdAt.compareTo(b.thought.createdAt));
+    final emptyGrouped = <String, List<_PlottedStar>>{
+      for (final c in layerOrder) c: <_PlottedStar>[],
+    };
+    final allSet = plotted.toSet();
+
+    return _WeeklyGalaxyLayout(
+      stars: plotted,
+      grouped: emptyGrouped,
+      constellationStars: allSet,
+      constellationThoughtIds: plotted.map((s) => s.thought.id).toSet(),
+      layerY: yMap,
+      isDemoGalaxy: true,
+      demoCurveAnchors: demoAnchors,
     );
   }
 
@@ -902,16 +1056,19 @@ class _WeeklyGalaxyLayout {
     List<_PlottedStar> stars, {
     required int maxStars,
   }) {
-    if (stars.length <= maxStars) return stars;
-    if (maxStars <= 1) return <_PlottedStar>[stars.first];
+    final orderedByX = List<_PlottedStar>.from(stars)
+      ..sort((a, b) => a.position.dx.compareTo(b.position.dx));
+    final compactByX = _compactStarsByX(orderedByX, minXGap: 16.0);
+    if (compactByX.length <= maxStars) return compactByX;
+    if (maxStars <= 1) return <_PlottedStar>[compactByX.first];
 
     final selected = <_PlottedStar>[];
     final used = <int>{};
-    final step = (stars.length - 1) / (maxStars - 1);
+    final step = (compactByX.length - 1) / (maxStars - 1);
 
     for (var i = 0; i < maxStars; i++) {
-      var index = (i * step).round().clamp(0, stars.length - 1);
-      while (used.contains(index) && index < stars.length - 1) {
+      var index = (i * step).round().clamp(0, compactByX.length - 1);
+      while (used.contains(index) && index < compactByX.length - 1) {
         index++;
       }
       if (used.contains(index)) {
@@ -920,12 +1077,35 @@ class _WeeklyGalaxyLayout {
         }
       }
       if (used.add(index)) {
-        selected.add(stars[index]);
+        selected.add(compactByX[index]);
       }
     }
 
-    selected.sort((a, b) => a.thought.createdAt.compareTo(b.thought.createdAt));
+    selected.sort((a, b) => a.position.dx.compareTo(b.position.dx));
     return selected;
+  }
+
+  static List<_PlottedStar> _compactStarsByX(
+    List<_PlottedStar> stars, {
+    required double minXGap,
+  }) {
+    if (stars.length <= 2) return stars;
+    final compact = <_PlottedStar>[stars.first];
+    for (var i = 1; i < stars.length; i++) {
+      final current = stars[i];
+      final last = compact.last;
+      if ((current.position.dx - last.position.dx).abs() < minXGap) {
+        final lastWeight = (last.hasInsight ? 1 : 0) + (last.hasAction ? 1 : 0);
+        final currentWeight =
+            (current.hasInsight ? 1 : 0) + (current.hasAction ? 1 : 0);
+        if (currentWeight >= lastWeight) {
+          compact[compact.length - 1] = current;
+        }
+        continue;
+      }
+      compact.add(current);
+    }
+    return compact;
   }
 
   static void _smoothCategoryWave(List<_PlottedStar> stars, double fallbackY) {
@@ -1000,30 +1180,63 @@ class _WeeklyGalaxyPainter extends CustomPainter {
   }
 
   void _drawConstellations(Canvas canvas) {
+    if (layout.isDemoGalaxy && layout.demoCurveAnchors != null) {
+      for (final entry in layout.demoCurveAnchors!.entries) {
+        final points = entry.value;
+        if (points.length < 2) continue;
+
+        final path = _buildSmoothSplinePath(points, tension: 0.32);
+        final color = _colorForDemoCategory(entry.key);
+
+        final glowPaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..strokeWidth = 2.15
+          ..color = color.withOpacity(0.14)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.2)
+          ..blendMode = BlendMode.plus;
+        final corePaint = Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..strokeWidth = 0.95
+          ..color = color.withOpacity(0.4)
+          ..blendMode = BlendMode.plus;
+
+        canvas.drawPath(path, glowPaint);
+        canvas.drawPath(path, corePaint);
+      }
+      return;
+    }
+
     for (final entry in layout.grouped.entries) {
-      final stars = entry.value;
+      final stars = List<_PlottedStar>.from(entry.value)
+        ..sort((a, b) => a.position.dx.compareTo(b.position.dx));
       if (stars.length < 2) continue;
 
       final points = stars.map((s) => s.position).toList(growable: false);
-      final path = _buildRoundedLinearPath(points, cornerRadius: 9.0);
+      final path = _buildSmoothSplinePath(points, tension: 0.22);
 
       final density = ((stars.length - 2) / 14).clamp(0.0, 1.0);
-      final coreWidth = 1.15 - 0.34 * density;
-      final glowWidth = 2.25 - 0.62 * density;
+      final coreWidth = 1.08 - 0.30 * density;
+      final glowWidth = 2.0 - 0.5 * density;
       final color = stars.first.color;
 
       final glowPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
         ..strokeWidth = glowWidth
-        ..color = color.withOpacity(0.3)
+        ..color = color.withOpacity(0.16)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.6)
         ..blendMode = BlendMode.plus;
       final corePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
         ..strokeWidth = coreWidth
-        ..color = color.withOpacity(0.82)
+        ..color = color.withOpacity(0.46)
         ..blendMode = BlendMode.plus;
 
       canvas.drawPath(path, glowPaint);
@@ -1031,39 +1244,101 @@ class _WeeklyGalaxyPainter extends CustomPainter {
     }
   }
 
-  Path _buildRoundedLinearPath(List<Offset> points,
-      {required double cornerRadius}) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
+  Color _colorForDemoCategory(String category) {
+    switch (category) {
+      case 'future':
+        return const Color(0xFF5CA8FF);
+      case 'emotion':
+        return const Color(0xFFFF79CC);
+      case 'action':
+        return const Color(0xFFFFE066);
+      case 'past':
+        return const Color(0xFFC184FF);
+      case 'neutral':
+        return const Color(0xFFDCE7FF);
+      default:
+        return Colors.white;
+    }
+  }
+
+  Path _buildSmoothSplinePath(
+    List<Offset> points, {
+    required double tension,
+  }) {
+    final path = Path();
+    if (points.isEmpty) return path;
+
+    path.moveTo(points.first.dx, points.first.dy);
+    if (points.length == 1) return path;
     if (points.length == 2) {
       path.lineTo(points.last.dx, points.last.dy);
       return path;
     }
-    for (var i = 1; i < points.length - 1; i++) {
-      final prev = points[i - 1];
-      final current = points[i];
-      final next = points[i + 1];
-      final inVec = current - prev;
-      final outVec = next - current;
-      final inLen = inVec.distance;
-      final outLen = outVec.distance;
-      if (inLen < 0.01 || outLen < 0.01) {
-        path.lineTo(current.dx, current.dy);
-        continue;
-      }
-      final r = min(cornerRadius, min(inLen, outLen) * 0.34);
-      final cornerStart = current - (inVec / inLen) * r;
-      final cornerEnd = current + (outVec / outLen) * r;
-      path.lineTo(cornerStart.dx, cornerStart.dy);
-      path.quadraticBezierTo(
-          current.dx, current.dy, cornerEnd.dx, cornerEnd.dy);
+
+    // Cardinal spline converted to cubic Bezier segments.
+    // This keeps each segment endpoint on the star centers.
+    final t = tension.clamp(0.0, 1.0);
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = i == 0 ? points[i] : points[i - 1];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = i + 2 < points.length ? points[i + 2] : points[i + 1];
+
+      final c1 = Offset(
+        p1.dx + (p2.dx - p0.dx) * (t / 6),
+        p1.dy + (p2.dy - p0.dy) * (t / 6),
+      );
+      final c2 = Offset(
+        p2.dx - (p3.dx - p1.dx) * (t / 6),
+        p2.dy - (p3.dy - p1.dy) * (t / 6),
+      );
+
+      path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
     }
-    path.lineTo(points.last.dx, points.last.dy);
+
     return path;
   }
 
   void _drawStars(Canvas canvas) {
+    if (layout.isDemoGalaxy) {
+      for (final star in layout.constellationStars) {
+        _drawDemoGalaxyStarFieldDot(canvas, star);
+      }
+      return;
+    }
     for (final star in layout.constellationStars) {
       _drawConstellationStar(canvas, star);
+    }
+  }
+
+  /// Dense, soft stars for demo screenshots (lighter than full constellation hubs).
+  void _drawDemoGalaxyStarFieldDot(Canvas canvas, _PlottedStar star) {
+    final center = star.position;
+    final rnd = Random(star.thought.id * 7919);
+    final coreR = 0.55 + rnd.nextDouble() * 1.05;
+    final glowR = coreR + 2.6 + rnd.nextDouble() * 3.8;
+    final glowAlpha = star.hasInsight
+        ? (0.12 + rnd.nextDouble() * 0.1)
+        : (0.08 + rnd.nextDouble() * 0.08);
+    final coreAlpha = 0.55 + rnd.nextDouble() * 0.35;
+
+    final glow = Paint()
+      ..color = star.color.withOpacity(glowAlpha)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.4)
+      ..blendMode = BlendMode.plus;
+    canvas.drawCircle(center, glowR, glow);
+
+    final core = Paint()
+      ..color = star.color.withOpacity(coreAlpha)
+      ..blendMode = BlendMode.plus;
+    canvas.drawCircle(center, coreR, core);
+
+    if (star.hasInsight && rnd.nextDouble() < 0.14) {
+      final halo = Paint()
+        ..color = star.color.withOpacity(0.1)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
+        ..blendMode = BlendMode.plus;
+      canvas.drawCircle(center, glowR * 1.45, halo);
     }
   }
 
@@ -1118,6 +1393,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WeeklyGalaxyPainter oldDelegate) {
+    if (oldDelegate.layout.isDemoGalaxy != layout.isDemoGalaxy) return true;
     if (oldDelegate.layout.stars.length != layout.stars.length) return true;
     if (oldDelegate.layout.constellationThoughtIds.length !=
         layout.constellationThoughtIds.length) {

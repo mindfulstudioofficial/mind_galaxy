@@ -63,7 +63,7 @@
   "weeklyInsightsLabel": "気づき",
   "weeklyActionsLabel": "行動",
   "close": "閉じる",
-  "starsCount": "星 {count} 個",
+  "starsCount": "星 {count}",
   "@starsCount": {
     "placeholders": {
       "count": {

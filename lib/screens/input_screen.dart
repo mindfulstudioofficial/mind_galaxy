@@ -300,7 +300,9 @@ class _InputScreenState extends State<InputScreen>
       thought.glowIntensity = _glowIntensity;
       thought.particleSpread = _particleSpread;
       thought.revisitAt = DateTime.now().add(const Duration(days: 1));
-      await thought.save();
+      if (thought.isInBox) {
+        await thought.save();
+      }
       if (!mounted) return;
       Navigator.pop(context, true);
       return;

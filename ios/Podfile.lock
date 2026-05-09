@@ -117,7 +117,7 @@ SPEC CHECKSUMS:
   path_provider_foundation: 608fcb11be570ce83519b076ab6a1fffe2474f05
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   share_plus: de6030e33b4e106470e09322d87cf2a4258d2d1d
-  shared_preferences_foundation: 0b09b969fb36da5551c0bc4a2dbd9d0ff9387478
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: a1c1f2bf89969cb13cce46d0333c7257d346e169
   webview_flutter_wkwebview: daa94b5ed120e19439eb7f797649768d6360ebdd
 
