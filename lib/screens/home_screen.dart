@@ -1114,8 +1114,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Drawer _buildMainDrawer() {
     final loc = AppLocalizations.of(context)!;
-    const profileName = 'You';
-    const profileEmoji = '🙂';
     return Drawer(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -1134,41 +1132,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           child: Column(
             children: [
               const SizedBox(height: 8),
-              Container(
-                margin: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: Colors.white.withOpacity(0.12), width: 0.8),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.white.withOpacity(0.14),
-                      child: Text(
-                        profileEmoji,
-                        style: const TextStyle(fontSize: 18),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        profileName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          letterSpacing: 0.6,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
               ListTile(
                 leading: const Icon(Icons.settings, color: Colors.white70),
                 title: Text(
