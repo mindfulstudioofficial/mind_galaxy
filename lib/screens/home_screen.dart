@@ -1566,66 +1566,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (_isObservationMode)
               ..._buildObservationStars(size)
             else
-              ..._thoughts.map((thought) => ThoughtStar(
-                    thought: thought,
-                    x: thought.dx,
-                    y: thought.dy,
-                    content: thought.content,
-                    insight: thought.insight ?? '',
-                    action: thought.action ?? '',
-                    category: thought.category,
-                    isDeleting: thought.isDeleting,
-                    blackHolePosition: _deleteHolePosition,
-                    onDragEnd: () => _checkBlackHoleSuckIn(thought),
-                    revisitPosition: _revisitCenterPosition,
-                    isTarget: revisitCandidates.contains(thought),
-                    suppressDetailPopup:
-                        _tutorialStep < 6 || _isObservationMode,
-                    onThoughtPersisted: () => setState(() {}),
-                    onThoughtRemovedFromHive: () => setState(() {
-                      _thoughts.remove(thought);
-                      _observationThoughts.remove(thought);
-                    }),
-                    onCategoryChanged: (newCategory) async {
-                      setState(() {
-                        // 1. 画面上の星のデータを更新
-                        thought.category = newCategory;
-                        if (_tutorialStep < 6) {
-                          _tutorialStarColor = _getCategoryColor(newCategory);
+              ..._thoughts.map((thought) => IgnorePointer(
+                    ignoring: _tutorialStep < 6,
+                    child: ThoughtStar(
+                      thought: thought,
+                      x: thought.dx,
+                      y: thought.dy,
+                      content: thought.content,
+                      insight: thought.insight ?? '',
+                      action: thought.action ?? '',
+                      category: thought.category,
+                      isDeleting: thought.isDeleting,
+                      blackHolePosition: _deleteHolePosition,
+                      onDragEnd: () => _checkBlackHoleSuckIn(thought),
+                      revisitPosition: _revisitCenterPosition,
+                      isTarget: revisitCandidates.contains(thought),
+                      suppressDetailPopup:
+                          _tutorialStep < 6 || _isObservationMode,
+                      onThoughtPersisted: () => setState(() {}),
+                      onThoughtRemovedFromHive: () => setState(() {
+                        _thoughts.remove(thought);
+                        _observationThoughts.remove(thought);
+                      }),
+                      onCategoryChanged: (newCategory) async {
+                        setState(() {
+                          // 1. 画面上の星のデータを更新
+                          thought.category = newCategory;
+                          if (_tutorialStep < 6) {
+                            _tutorialStarColor = _getCategoryColor(newCategory);
+                          }
+                        });
+                        // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
+                        if (thought.isInBox) {
+                          await thought.save();
+                          // 3. 念のため全体保存も走らせる
+                          _persistAllThoughts();
                         }
-                      });
-                      // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
-                      if (thought.isInBox) {
-                        await thought.save();
-                        // 3. 念のため全体保存も走らせる
-                        _persistAllThoughts();
-                      }
 
-                      debugPrint("Category saved: $newCategory");
-                    },
-                    onPositionChanged: (newOffset) {
-                      setState(() {
-                        // 🚀 ここでリスト内のデータの座標を常に最新にする
-                        thought.dx = newOffset.dx;
-                        thought.dy = newOffset.dy;
-                      });
-                    },
-                    onTap: (t) => _showThoughtDetail(t),
-                    onLongPress: () {},
+                        debugPrint("Category saved: $newCategory");
+                      },
+                      onPositionChanged: (newOffset) {
+                        setState(() {
+                          // 🚀 ここでリスト内のデータの座標を常に最新にする
+                          thought.dx = newOffset.dx;
+                          thought.dy = newOffset.dy;
+                        });
+                      },
+                      onTap: (t) => _showThoughtDetail(t),
+                      onLongPress: () {},
+                    ),
                   )),
 
-            Positioned(
-              left: 16,
-              top: topControlOffset,
-              child: Builder(
-                builder: (context) => _buildRoundSpaceButton(
-                  icon: Icons.menu,
-                  onTap: () => Scaffold.of(context).openDrawer(),
-                  size: controlButtonSize,
-                  iconSize: controlIconSize,
+            if (_tutorialStep >= 6)
+              Positioned(
+                left: 16,
+                top: topControlOffset,
+                child: Builder(
+                  builder: (context) => _buildRoundSpaceButton(
+                    icon: Icons.menu,
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                    size: controlButtonSize,
+                    iconSize: controlIconSize,
+                  ),
                 ),
               ),
-            ),
 
             if (_tutorialStep >= 6)
               Positioned(
@@ -1642,65 +1646,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-            Positioned(
-              left: 16,
-              bottom: bottomControlOffset,
-              child: _buildRoundSpaceButton(
-                icon: Icons.travel_explore,
-                active: _isObservationMode,
-                onTap: () => _toggleObservationMode(size.height),
-                size: controlButtonSize,
-                iconSize: controlIconSize,
-              ),
-            ),
-
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomControlOffset,
-              child: Center(
+            if (_tutorialStep >= 6)
+              Positioned(
+                left: 16,
+                bottom: bottomControlOffset,
                 child: _buildRoundSpaceButton(
-                  icon: Icons.auto_awesome,
-                  onTap: () {
-                    if (_isRewardAdLoading || _isRewardAdShowing) return;
-                    _showMeteorSupportDialog();
-                  },
+                  icon: Icons.travel_explore,
+                  active: _isObservationMode,
+                  onTap: () => _toggleObservationMode(size.height),
                   size: controlButtonSize,
                   iconSize: controlIconSize,
-                  iconChild: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Icon(
-                        Icons.auto_awesome,
-                        size: controlIconSize,
-                        color: Colors.white70,
-                      ),
-                      Positioned(
-                        right: 10,
-                        top: 16,
-                        child: Transform.rotate(
-                          angle: -0.45,
-                          child: Container(
-                            width: 10,
-                            height: 1.6,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(2),
-                              color: const Color(0xFF80FFE0).withValues(alpha: 0.7),
+                ),
+              ),
+
+            if (_tutorialStep >= 6)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomControlOffset,
+                child: Center(
+                  child: _buildRoundSpaceButton(
+                    icon: Icons.auto_awesome,
+                    onTap: () {
+                      if (_isRewardAdLoading || _isRewardAdShowing) return;
+                      _showMeteorSupportDialog();
+                    },
+                    size: controlButtonSize,
+                    iconSize: controlIconSize,
+                    iconChild: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: controlIconSize,
+                          color: Colors.white70,
+                        ),
+                        Positioned(
+                          right: 10,
+                          top: 16,
+                          child: Transform.rotate(
+                            angle: -0.45,
+                            child: Container(
+                              width: 10,
+                              height: 1.6,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(2),
+                                color: const Color(0xFF80FFE0)
+                                    .withValues(alpha: 0.7),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      if (_isRewardAdLoading || _isRewardAdShowing)
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                    ],
+                        if (_isRewardAdLoading || _isRewardAdShowing)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
             if (_tutorialStep >= 6 && !_isObservationMode)
               Positioned(
