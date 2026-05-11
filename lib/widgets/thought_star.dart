@@ -339,7 +339,7 @@ class _ThoughtStarState extends State<ThoughtStar>
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: getStarColor().withOpacity(0.7),
+                            color: getStarColor().withValues(alpha: 0.7),
                             blurRadius: getGlow(),
                           ),
                         ],

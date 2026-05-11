@@ -7,7 +7,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
-    final textColor = Colors.white.withOpacity(0.92);
+    final textColor = Colors.white.withValues(alpha: 0.92);
 
     return Scaffold(
       backgroundColor: const Color(0xFF04060D),
@@ -30,36 +30,36 @@ class SettingsScreen extends StatelessWidget {
             enabled: false,
             leading: Icon(
               Icons.cloud_sync,
-              color: textColor.withOpacity(0.38),
+              color: textColor.withValues(alpha: 0.38),
             ),
             title: Text(
               loc.accountSyncTitle,
               style: TextStyle(
-                color: textColor.withOpacity(0.55),
+                color: textColor.withValues(alpha: 0.55),
                 letterSpacing: 1.1,
               ),
             ),
             subtitle: Text(
               loc.futureLoginFeature,
-              style: TextStyle(color: textColor.withOpacity(0.42)),
+              style: TextStyle(color: textColor.withValues(alpha: 0.42)),
             ),
           ),
           ListTile(
             enabled: false,
             leading: Icon(
               Icons.workspace_premium,
-              color: textColor.withOpacity(0.38),
+              color: textColor.withValues(alpha: 0.38),
             ),
             title: Text(
               loc.premiumPlanTitle,
               style: TextStyle(
-                color: textColor.withOpacity(0.55),
+                color: textColor.withValues(alpha: 0.55),
                 letterSpacing: 1.1,
               ),
             ),
             subtitle: Text(
               loc.futureBillingPlan,
-              style: TextStyle(color: textColor.withOpacity(0.42)),
+              style: TextStyle(color: textColor.withValues(alpha: 0.42)),
             ),
           ),
           const SizedBox(height: 20),
@@ -67,7 +67,7 @@ class SettingsScreen extends StatelessWidget {
             loc.comingSoonLabel,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: textColor.withOpacity(0.48),
+              color: textColor.withValues(alpha: 0.48),
               letterSpacing: 0.6,
             ),
           ),

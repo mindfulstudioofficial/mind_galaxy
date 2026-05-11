@@ -525,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _tutorialVeil() {
     if (_tutorialStep >= 6) return const SizedBox.shrink();
     return Positioned.fill(
-      child: Container(color: Colors.black.withOpacity(0.6)),
+      child: Container(color: Colors.black.withValues(alpha: 0.6)),
     );
   }
 
@@ -1083,20 +1083,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           gradient: RadialGradient(
             colors: active
                 ? [
-                    Colors.blueGrey.withOpacity(0.42),
-                    Colors.indigo.withOpacity(0.28),
+                    Colors.blueGrey.withValues(alpha: 0.42),
+                    Colors.indigo.withValues(alpha: 0.28),
                     Colors.transparent,
                   ]
                 : [
-                    Colors.white.withOpacity(0.12),
-                    Colors.indigoAccent.withOpacity(0.18),
+                    Colors.white.withValues(alpha: 0.12),
+                    Colors.indigoAccent.withValues(alpha: 0.18),
                     Colors.transparent,
                   ],
           ),
-          border: Border.all(color: Colors.white.withOpacity(0.2), width: 0.85),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.85),
           boxShadow: [
             BoxShadow(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withValues(alpha: 0.08),
               blurRadius: 12,
               spreadRadius: 0,
             ),
@@ -1141,7 +1141,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 subtitle: Text(
                   loc.preparing,
-                  style: TextStyle(color: Colors.white.withOpacity(0.58)),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.58)),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -1301,7 +1301,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ? [
                         BoxShadow(
                           color: starColor
-                              .withOpacity(0.18 + (0.18 * focusFactor)),
+                              .withValues(alpha: 0.18 + (0.18 * focusFactor)),
                           blurRadius: focusedGlow,
                           spreadRadius: focusedGlow * 0.1,
                         ),
@@ -1359,7 +1359,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: const Color(0xFFDDE7EF).withOpacity(0.78),
+                color: const Color(0xFFDDE7EF).withValues(alpha: 0.78),
                 fontSize: 14.2,
                 height: 1.32,
                 letterSpacing: 0.12,
@@ -1383,7 +1383,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: const Color(0xFFBFC5CC).withOpacity(0.68),
+                color: const Color(0xFFBFC5CC).withValues(alpha: 0.68),
                 fontSize: 13.6,
                 height: 1.32,
                 letterSpacing: 0.1,
@@ -1525,7 +1525,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   gradient: RadialGradient(
                     colors: [
                       Colors.black,
-                      Colors.purple.withOpacity(0.2),
+                      Colors.purple.withValues(alpha: 0.2),
                       Colors.transparent,
                     ],
                   ),
@@ -1538,7 +1538,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Colors.white.withOpacity(0.1), width: 0.5),
+                          color: Colors.white.withValues(alpha: 0.1), width: 0.5),
                     ),
                   ),
                 ),
@@ -1685,7 +1685,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             height: 1.6,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(2),
-                              color: const Color(0xFF80FFE0).withOpacity(0.7),
+                              color: const Color(0xFF80FFE0).withValues(alpha: 0.7),
                             ),
                           ),
                         ),
@@ -1723,7 +1723,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   _formatMonthLabel(
                       _currentObservationFocusThought(size)!.createdAt),
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.35),
+                    color: Colors.white.withValues(alpha: 0.35),
                     fontSize: 18,
                     letterSpacing: 1.5,
                     fontWeight: FontWeight.w300,
@@ -1741,8 +1741,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         radius: 1.05,
                         colors: [
                           Colors.transparent,
-                          Colors.black.withOpacity(0.18),
-                          Colors.black.withOpacity(0.38),
+                          Colors.black.withValues(alpha: 0.18),
+                          Colors.black.withValues(alpha: 0.38),
                         ],
                         stops: const [0.55, 0.82, 1.0],
                       ),
@@ -1857,8 +1857,8 @@ class _MeteorShowerPainter extends CustomPainter {
         ..shader = LinearGradient(
           colors: [
             Colors.transparent,
-            trail.glowColor.withOpacity(0.25 * fade),
-            trail.glowColor.withOpacity(0.92 * fade),
+            trail.glowColor.withValues(alpha: 0.25 * fade),
+            trail.glowColor.withValues(alpha: 0.92 * fade),
           ],
         ).createShader(Rect.fromPoints(tail, head))
         ..strokeWidth = trail.thickness + 2.8
@@ -1869,8 +1869,8 @@ class _MeteorShowerPainter extends CustomPainter {
         ..shader = LinearGradient(
           colors: [
             Colors.transparent,
-            trail.coreColor.withOpacity(0.5 * fade),
-            trail.coreColor.withOpacity(0.96 * fade),
+            trail.coreColor.withValues(alpha: 0.5 * fade),
+            trail.coreColor.withValues(alpha: 0.96 * fade),
           ],
         ).createShader(Rect.fromPoints(tail, head))
         ..strokeWidth = trail.thickness
@@ -1883,7 +1883,7 @@ class _MeteorShowerPainter extends CustomPainter {
         head,
         trail.thickness + 0.9,
         Paint()
-          ..color = trail.headColor.withOpacity(0.96 * fade)
+          ..color = trail.headColor.withValues(alpha: 0.96 * fade)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3)
           ..blendMode = BlendMode.plus,
       );

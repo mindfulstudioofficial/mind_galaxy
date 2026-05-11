@@ -265,9 +265,9 @@ class _InputScreenState extends State<InputScreen>
     final remaining = maxLength - currentLength;
     Color color = Colors.white38;
     if (remaining <= 0) {
-      color = Colors.redAccent.withOpacity(0.9);
+      color = Colors.redAccent.withValues(alpha: 0.9);
     } else if (remaining <= 20) {
-      color = Colors.orangeAccent.withOpacity(0.9);
+      color = Colors.orangeAccent.withValues(alpha: 0.9);
     }
     return Text(
       "$currentLength/$maxLength",
@@ -404,13 +404,13 @@ class _InputScreenState extends State<InputScreen>
                           ? [
                               BoxShadow(
                                 color: Colors.white
-                                    .withOpacity(0.16 + pulseT * 0.08),
+                                    .withValues(alpha: 0.16 + pulseT * 0.08),
                                 blurRadius: dynamicGlow * 0.9,
                                 spreadRadius: (_glowIntensity - 1.0) * 1.6,
                               ),
                               BoxShadow(
                                 color: Colors.cyanAccent
-                                    .withOpacity(0.08 + pulseT * 0.08),
+                                    .withValues(alpha: 0.08 + pulseT * 0.08),
                                 blurRadius: dynamicGlow * 0.45,
                                 spreadRadius: (_glowIntensity - 1.0) * 0.5,
                               ),
@@ -562,7 +562,7 @@ class _InputScreenState extends State<InputScreen>
                                   hintStyle:
                                       const TextStyle(color: Colors.white30),
                                   filled: true,
-                                  fillColor: Colors.white.withOpacity(0.05),
+                                  fillColor: Colors.white.withValues(alpha: 0.05),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14)),
                                   counter: _buildUnifiedCounter(
@@ -595,7 +595,7 @@ class _InputScreenState extends State<InputScreen>
                                   hintStyle:
                                       const TextStyle(color: Colors.white38),
                                   filled: true,
-                                  fillColor: Colors.white.withOpacity(0.05),
+                                  fillColor: Colors.white.withValues(alpha: 0.05),
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14)),
                                   counter: _buildUnifiedCounter(

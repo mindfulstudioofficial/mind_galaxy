@@ -192,7 +192,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xAA061023).withOpacity(0.55),
+                      color: const Color(0xAA061023).withValues(alpha: 0.55),
                       blurRadius: 36,
                       spreadRadius: 1.5,
                     ),
@@ -240,7 +240,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                 Icon(
                                   Icons.auto_awesome,
                                   color:
-                                      AppColors.textPrimary.withOpacity(0.62),
+                                      AppColors.textPrimary.withValues(alpha: 0.62),
                                   size: 21,
                                 ),
                                 const SizedBox(width: 10),
@@ -249,7 +249,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                     widget.thought.content,
                                     style: TextStyle(
                                       color: AppColors.textPrimary
-                                          .withOpacity(0.94),
+                                          .withValues(alpha: 0.94),
                                       fontSize: 15,
                                       height: 1.5,
                                       fontWeight: FontWeight.w600,
@@ -263,7 +263,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               loc.insightLabel,
                               style: TextStyle(
                                 color:
-                                    AppColors.textSecondary.withOpacity(0.78),
+                                    AppColors.textSecondary.withValues(alpha: 0.78),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.35,
@@ -277,7 +277,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               keyboardType: TextInputType.multiline,
                               textInputAction: TextInputAction.newline,
                               style: TextStyle(
-                                color: AppColors.textPrimary.withOpacity(0.96),
+                                color: AppColors.textPrimary.withValues(alpha: 0.96),
                                 fontSize: 14,
                                 height: 1.5,
                               ),
@@ -285,7 +285,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                 hintText: loc.popupInsightHint,
                                 hintStyle: TextStyle(
                                   color:
-                                      AppColors.textSecondary.withOpacity(0.42),
+                                      AppColors.textSecondary.withValues(alpha: 0.42),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
@@ -301,7 +301,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               loc.actionLabel,
                               style: TextStyle(
                                 color:
-                                    AppColors.textSecondary.withOpacity(0.78),
+                                    AppColors.textSecondary.withValues(alpha: 0.78),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.35,
@@ -315,7 +315,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               keyboardType: TextInputType.multiline,
                               textInputAction: TextInputAction.newline,
                               style: TextStyle(
-                                color: AppColors.textPrimary.withOpacity(0.96),
+                                color: AppColors.textPrimary.withValues(alpha: 0.96),
                                 fontSize: 14,
                                 height: 1.5,
                               ),
@@ -323,7 +323,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                 hintText: loc.popupActionHint,
                                 hintStyle: TextStyle(
                                   color:
-                                      AppColors.textSecondary.withOpacity(0.42),
+                                      AppColors.textSecondary.withValues(alpha: 0.42),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
@@ -363,7 +363,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                             : null,
                                   ),
                                   shadowColor: WidgetStatePropertyAll(
-                                    const Color(0x99203055).withOpacity(0.38),
+                                    const Color(0x99203055).withValues(alpha: 0.38),
                                   ),
                                 ),
                                 child: Text(
@@ -432,7 +432,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
         final scrimOpacity = (0.32 * _introOpacity.value) * (1.0 - t * 0.85);
 
         return Material(
-          color: Colors.black.withOpacity(scrimOpacity.clamp(0.0, 0.55)),
+          color: Colors.black.withValues(alpha: scrimOpacity.clamp(0.0, 0.55)),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -495,15 +495,15 @@ class _PopupIconButton extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.textPrimary.withOpacity(0.08),
+            color: AppColors.textPrimary.withValues(alpha: 0.08),
             border: Border.all(
-              color: AppColors.textPrimary.withOpacity(0.16),
+              color: AppColors.textPrimary.withValues(alpha: 0.16),
               width: 1,
             ),
           ),
           child: Icon(
             icon,
-            color: AppColors.textSecondary.withOpacity(0.95),
+            color: AppColors.textSecondary.withValues(alpha: 0.95),
             size: 18,
           ),
         ),

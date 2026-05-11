@@ -59,13 +59,13 @@ class _CentralStarState extends State<CentralStar>
                 shape: BoxShape.circle, // 🚀 確実に円形にする
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.white.withOpacity(widget.flash ? 0.3 : 0.15 + p * 0.1),
+                    color: Colors.white.withValues(alpha: widget.flash ? 0.3 : 0.15 + p * 0.1),
                     blurRadius: 40 + p * 20,
                     spreadRadius: 2,
                   ),
                   // 最大ティア用の黄金の輝き
                   BoxShadow(
-                    color: const Color(0xFFE8C547).withOpacity(0.1 + p * 0.05),
+                    color: const Color(0xFFE8C547).withValues(alpha: 0.1 + p * 0.05),
                     blurRadius: 60,
                     spreadRadius: -10,
                   ),
@@ -76,7 +76,7 @@ class _CentralStarState extends State<CentralStar>
             // 2. 中心星
             Icon(
               Icons.star,
-              color: Colors.white.withOpacity(widget.flash ? 1.0 : 0.8),
+              color: Colors.white.withValues(alpha: widget.flash ? 1.0 : 0.8),
               size: starSize,
             ),
 

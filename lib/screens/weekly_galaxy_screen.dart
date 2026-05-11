@@ -217,10 +217,10 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF101624), Color(0xFF151E30), Color(0xFF0E1522)],
         ),
-        border: Border.all(color: _statsEmerald.withOpacity(0.38), width: 0.8),
+        border: Border.all(color: _statsEmerald.withValues(alpha: 0.38), width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: _statsEmerald.withOpacity(0.12),
+            color: _statsEmerald.withValues(alpha: 0.12),
             blurRadius: 12,
             spreadRadius: 0,
           ),
@@ -232,7 +232,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: _CardStarDustPainter(
-                  color: _statsEmerald.withOpacity(0.22),
+                  color: _statsEmerald.withValues(alpha: 0.22),
                   seed: summary.totalThoughts + 21,
                 ),
               ),
@@ -262,7 +262,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 AppLocalizations.of(context)!.weeklyDensity,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.72),
+                  color: Colors.white.withValues(alpha: 0.72),
                   fontSize: compact ? 9 : 11,
                   letterSpacing: 2.4,
                   fontWeight: FontWeight.w400,
@@ -273,7 +273,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 '$densityPercent%',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _statsEmerald.withOpacity(0.78),
+                  color: _statsEmerald.withValues(alpha: 0.78),
                   fontSize: compact ? 12 : 14,
                   letterSpacing: 1.2,
                   fontWeight: FontWeight.w500,
@@ -412,10 +412,10 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF101624), Color(0xFF172336), Color(0xFF0E1522)],
         ),
-        border: Border.all(color: _statsEmerald.withOpacity(0.45), width: 0.8),
+        border: Border.all(color: _statsEmerald.withValues(alpha: 0.45), width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: _statsEmerald.withOpacity(0.14),
+            color: _statsEmerald.withValues(alpha: 0.14),
             blurRadius: 12,
             spreadRadius: 0,
           ),
@@ -427,7 +427,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
             child: IgnorePointer(
               child: CustomPaint(
                 painter: _CardStarDustPainter(
-                  color: _statsEmerald.withOpacity(0.24),
+                  color: _statsEmerald.withValues(alpha: 0.24),
                   seed: count + (particleMode ? 91 : 47),
                 ),
               ),
@@ -458,7 +458,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 label,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.72),
+                  color: Colors.white.withValues(alpha: 0.72),
                   fontSize: compact ? 9 : 11,
                   letterSpacing: 2.4,
                   fontWeight: FontWeight.w500,
@@ -469,7 +469,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 _starsCountLabel(count),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _statsEmerald.withOpacity(0.78),
+                  color: _statsEmerald.withValues(alpha: 0.78),
                   fontSize: compact ? 12 : 14,
                   letterSpacing: 1.2,
                   fontWeight: FontWeight.w500,
@@ -490,7 +490,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF090E19),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.12), width: 0.8),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 0.8),
         ),
       ),
       child: Padding(
@@ -506,7 +506,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
             Text(
               loc.weeklyAnalysis,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.78),
+                color: Colors.white.withValues(alpha: 0.78),
                 fontSize: compact ? 10 : 12,
                 fontWeight: FontWeight.w500,
                 letterSpacing: 2.4,
@@ -639,7 +639,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                           loc.weekdaySunShort,
                                         ][index],
                                         style: TextStyle(
-                                          color: Colors.white.withOpacity(0.45),
+                                          color: Colors.white.withValues(alpha: 0.45),
                                           fontSize: 8.5,
                                           letterSpacing: 1.2,
                                         ),
@@ -693,7 +693,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: categoryColor
-                                                  .withOpacity(0.78),
+                                                  .withValues(alpha: 0.78),
                                               fontSize:
                                                   labelSpec.categoryFontSize,
                                               fontWeight: FontWeight.w300,
@@ -707,7 +707,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
                                               color: categoryColor
-                                                  .withOpacity(0.58),
+                                                  .withValues(alpha: 0.58),
                                               fontSize: labelSpec.countFontSize,
                                               fontWeight: FontWeight.w300,
                                               letterSpacing:
@@ -726,7 +726,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                 child: Text(
                                   loc.noThoughtsThisWeek,
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.45),
+                                    color: Colors.white.withValues(alpha: 0.45),
                                     fontSize: 13,
                                     letterSpacing: 2.4,
                                   ),
@@ -1193,7 +1193,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round
           ..strokeWidth = 2.15
-          ..color = color.withOpacity(0.14)
+          ..color = color.withValues(alpha: 0.14)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.2)
           ..blendMode = BlendMode.plus;
         final corePaint = Paint()
@@ -1201,7 +1201,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round
           ..strokeWidth = 0.95
-          ..color = color.withOpacity(0.4)
+          ..color = color.withValues(alpha: 0.4)
           ..blendMode = BlendMode.plus;
 
         canvas.drawPath(path, glowPaint);
@@ -1228,7 +1228,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..strokeWidth = glowWidth
-        ..color = color.withOpacity(0.16)
+        ..color = color.withValues(alpha: 0.16)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.6)
         ..blendMode = BlendMode.plus;
       final corePaint = Paint()
@@ -1236,7 +1236,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round
         ..strokeWidth = coreWidth
-        ..color = color.withOpacity(0.46)
+        ..color = color.withValues(alpha: 0.46)
         ..blendMode = BlendMode.plus;
 
       canvas.drawPath(path, glowPaint);
@@ -1323,19 +1323,19 @@ class _WeeklyGalaxyPainter extends CustomPainter {
     final coreAlpha = 0.55 + rnd.nextDouble() * 0.35;
 
     final glow = Paint()
-      ..color = star.color.withOpacity(glowAlpha)
+      ..color = star.color.withValues(alpha: glowAlpha)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.4)
       ..blendMode = BlendMode.plus;
     canvas.drawCircle(center, glowR, glow);
 
     final core = Paint()
-      ..color = star.color.withOpacity(coreAlpha)
+      ..color = star.color.withValues(alpha: coreAlpha)
       ..blendMode = BlendMode.plus;
     canvas.drawCircle(center, coreR, core);
 
     if (star.hasInsight && rnd.nextDouble() < 0.14) {
       final halo = Paint()
-        ..color = star.color.withOpacity(0.1)
+        ..color = star.color.withValues(alpha: 0.1)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(center, glowR * 1.45, halo);
@@ -1351,19 +1351,19 @@ class _WeeklyGalaxyPainter extends CustomPainter {
     final insightRadius = 10.6 * sparkle;
 
     final base = Paint()
-      ..color = star.color.withOpacity(1.0)
+      ..color = star.color.withValues(alpha: 1.0)
       ..blendMode = BlendMode.plus;
     canvas.drawCircle(center, coreRadius, base);
 
     final baseGlow = Paint()
-      ..color = star.color.withOpacity(0.66)
+      ..color = star.color.withValues(alpha: 0.66)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.9)
       ..blendMode = BlendMode.plus;
     canvas.drawCircle(center, glowRadius, baseGlow);
 
     if (star.hasInsight) {
       final insightGlow = Paint()
-        ..color = star.color.withOpacity(0.8)
+        ..color = star.color.withValues(alpha: 0.8)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13.8)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(center, insightRadius, insightGlow);
@@ -1383,7 +1383,7 @@ class _WeeklyGalaxyPainter extends CustomPainter {
         final alpha = (0.14 + random.nextDouble() * 0.34).clamp(0.0, 1.0);
         final size = 0.7 + random.nextDouble() * 1.6;
         final particle = Paint()
-          ..color = star.color.withOpacity(alpha)
+          ..color = star.color.withValues(alpha: alpha)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2)
           ..blendMode = BlendMode.plus;
         canvas.drawCircle(p, size, particle);
@@ -1436,7 +1436,7 @@ class _CardStarDustPainter extends CustomPainter {
       final radius = 0.4 + random.nextDouble() * 1.15;
       final alpha = (0.06 + random.nextDouble() * 0.26).clamp(0.0, 1.0);
       final dotPaint = Paint()
-        ..color = color.withOpacity(alpha)
+        ..color = color.withValues(alpha: alpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.1)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(Offset(x, y), radius, dotPaint);
@@ -1497,12 +1497,12 @@ class _StatConstellationPainter extends CustomPainter {
       final linePaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.1
-        ..color = color.withOpacity(0.55)
+        ..color = color.withValues(alpha: 0.55)
         ..blendMode = BlendMode.plus;
       final lineGlow = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.2
-        ..color = color.withOpacity(0.22)
+        ..color = color.withValues(alpha: 0.22)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2)
         ..blendMode = BlendMode.plus;
       canvas.drawPath(path, lineGlow);
@@ -1512,12 +1512,12 @@ class _StatConstellationPainter extends CustomPainter {
     final random = Random(count * (particleMode ? 37 : 17));
     for (final point in points) {
       final core = Paint()
-        ..color = color.withOpacity(0.9)
+        ..color = color.withValues(alpha: 0.9)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(point, 1.9, core);
 
       final glow = Paint()
-        ..color = color.withOpacity(particleMode ? 0.44 : 0.58)
+        ..color = color.withValues(alpha: particleMode ? 0.44 : 0.58)
         ..maskFilter =
             MaskFilter.blur(BlurStyle.normal, particleMode ? 5.6 : 7.5)
         ..blendMode = BlendMode.plus;
@@ -1532,7 +1532,7 @@ class _StatConstellationPainter extends CustomPainter {
             point.dy + sin(baseAngle) * r * 0.8,
           );
           final paint = Paint()
-            ..color = color.withOpacity(0.18 + random.nextDouble() * 0.2)
+            ..color = color.withValues(alpha: 0.18 + random.nextDouble() * 0.2)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.0)
             ..blendMode = BlendMode.plus;
           canvas.drawCircle(particle, 0.65 + random.nextDouble() * 0.7, paint);
@@ -1619,7 +1619,7 @@ class _DensityOrbPainter extends CustomPainter {
     final border = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.9
-      ..color = color.withOpacity(0.45);
+      ..color = color.withValues(alpha: 0.45);
     canvas.drawCircle(center, radius, shell);
     canvas.drawCircle(center, radius, border);
 
@@ -1635,7 +1635,7 @@ class _DensityOrbPainter extends CustomPainter {
         center.dy + sin(seedA + drift * 0.25) * r * 0.72,
       );
       final point = Paint()
-        ..color = color.withOpacity(0.35 + (0.4 * (0.5 + 0.5 * sin(drift))))
+        ..color = color.withValues(alpha: 0.35 + (0.4 * (0.5 + 0.5 * sin(drift))))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(p, 1.2 + (seedR * 1.3), point);
