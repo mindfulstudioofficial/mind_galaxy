@@ -356,13 +356,13 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                   ),
                                 ).copyWith(
                                   overlayColor:
-                                      MaterialStateProperty.resolveWith(
+                                      WidgetStateProperty.resolveWith(
                                     (states) =>
-                                        states.contains(MaterialState.pressed)
+                                        states.contains(WidgetState.pressed)
                                             ? const Color(0x66305087)
                                             : null,
                                   ),
-                                  shadowColor: MaterialStatePropertyAll(
+                                  shadowColor: WidgetStatePropertyAll(
                                     const Color(0x99203055).withOpacity(0.38),
                                   ),
                                 ),
