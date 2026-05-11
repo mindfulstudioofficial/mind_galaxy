@@ -1454,20 +1454,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Thought? _currentObservationFocusThought(Size size) {
     if (_observationThoughts.isEmpty) return null;
-    final centerY = size.height * 0.5;
-    const cullMargin = 220.0;
-    Thought? closest;
-    double closestDistance = double.infinity;
-    for (int i = 0; i < _observationThoughts.length; i++) {
-      final y = (i * _observationSpacing) - _observationScrollOffset + centerY;
-      if (y < -cullMargin || y > size.height + cullMargin) continue;
-      final d = (y - centerY).abs();
-      if (d < closestDistance) {
-        closestDistance = d;
-        closest = _observationThoughts[i];
-      }
-    }
-    return closest;
+    final nearestIndex =
+        (_observationScrollOffset / _observationSpacing).round();
+    final clampedIndex = nearestIndex.clamp(0, _observationThoughts.length - 1);
+    return _observationThoughts[clampedIndex];
   }
 
   @override

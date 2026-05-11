@@ -1,5 +1,6 @@
 # Python (local tooling / accidental venv in repo root)
 .venv/
+.venv_icon/
 venv/
 
 # Miscellaneous
