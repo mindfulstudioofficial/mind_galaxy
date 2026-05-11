@@ -1566,55 +1566,53 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (_isObservationMode)
               ..._buildObservationStars(size)
             else
-              ..._thoughts.map((thought) => IgnorePointer(
-                    ignoring: _tutorialStep < 6,
-                    child: ThoughtStar(
-                      thought: thought,
-                      x: thought.dx,
-                      y: thought.dy,
-                      content: thought.content,
-                      insight: thought.insight ?? '',
-                      action: thought.action ?? '',
-                      category: thought.category,
-                      isDeleting: thought.isDeleting,
-                      blackHolePosition: _deleteHolePosition,
-                      onDragEnd: () => _checkBlackHoleSuckIn(thought),
-                      revisitPosition: _revisitCenterPosition,
-                      isTarget: revisitCandidates.contains(thought),
-                      suppressDetailPopup:
-                          _tutorialStep < 6 || _isObservationMode,
-                      onThoughtPersisted: () => setState(() {}),
-                      onThoughtRemovedFromHive: () => setState(() {
-                        _thoughts.remove(thought);
-                        _observationThoughts.remove(thought);
-                      }),
-                      onCategoryChanged: (newCategory) async {
-                        setState(() {
-                          // 1. 画面上の星のデータを更新
-                          thought.category = newCategory;
-                          if (_tutorialStep < 6) {
-                            _tutorialStarColor = _getCategoryColor(newCategory);
-                          }
-                        });
-                        // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
-                        if (thought.isInBox) {
-                          await thought.save();
-                          // 3. 念のため全体保存も走らせる
-                          _persistAllThoughts();
+              ..._thoughts.map((thought) => ThoughtStar(
+                    thought: thought,
+                    x: thought.dx,
+                    y: thought.dy,
+                    content: thought.content,
+                    insight: thought.insight ?? '',
+                    action: thought.action ?? '',
+                    category: thought.category,
+                    isDeleting: thought.isDeleting,
+                    blackHolePosition: _deleteHolePosition,
+                    onDragEnd: () => _checkBlackHoleSuckIn(thought),
+                    revisitPosition: _revisitCenterPosition,
+                    isTarget: revisitCandidates.contains(thought),
+                    suppressDetailPopup:
+                        _tutorialStep < 6 || _isObservationMode,
+                    interactionEnabled: _tutorialStep >= 6,
+                    onThoughtPersisted: () => setState(() {}),
+                    onThoughtRemovedFromHive: () => setState(() {
+                      _thoughts.remove(thought);
+                      _observationThoughts.remove(thought);
+                    }),
+                    onCategoryChanged: (newCategory) async {
+                      setState(() {
+                        // 1. 画面上の星のデータを更新
+                        thought.category = newCategory;
+                        if (_tutorialStep < 6) {
+                          _tutorialStarColor = _getCategoryColor(newCategory);
                         }
+                      });
+                      // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
+                      if (thought.isInBox) {
+                        await thought.save();
+                        // 3. 念のため全体保存も走らせる
+                        _persistAllThoughts();
+                      }
 
-                        debugPrint("Category saved: $newCategory");
-                      },
-                      onPositionChanged: (newOffset) {
-                        setState(() {
-                          // 🚀 ここでリスト内のデータの座標を常に最新にする
-                          thought.dx = newOffset.dx;
-                          thought.dy = newOffset.dy;
-                        });
-                      },
-                      onTap: (t) => _showThoughtDetail(t),
-                      onLongPress: () {},
-                    ),
+                      debugPrint("Category saved: $newCategory");
+                    },
+                    onPositionChanged: (newOffset) {
+                      setState(() {
+                        // 🚀 ここでリスト内のデータの座標を常に最新にする
+                        thought.dx = newOffset.dx;
+                        thought.dy = newOffset.dy;
+                      });
+                    },
+                    onTap: (t) => _showThoughtDetail(t),
+                    onLongPress: () {},
                   )),
 
             if (_tutorialStep >= 6)

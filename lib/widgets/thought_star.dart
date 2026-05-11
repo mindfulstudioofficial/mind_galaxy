@@ -23,6 +23,7 @@ class ThoughtStar extends StatefulWidget {
   final bool isTarget;
 
   final bool suppressDetailPopup;
+  final bool interactionEnabled;
   final VoidCallback? onThoughtPersisted;
   final VoidCallback? onThoughtRemovedFromHive;
   final VoidCallback? onDragEnd; // 🚀 必須(required)ではなく任意(? )として定義
@@ -44,6 +45,7 @@ class ThoughtStar extends StatefulWidget {
     required this.isDeleting,
     required this.blackHolePosition,
     this.suppressDetailPopup = false,
+    this.interactionEnabled = true,
     this.onThoughtPersisted,
     this.onThoughtRemovedFromHive,
     this.onDragEnd, // 🚀 コンストラクタに追加
@@ -306,9 +308,12 @@ class _ThoughtStarState extends State<ThoughtStar>
               scale: scale,
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
-                onTap: () => widget.onTap(widget.thought),
-                onLongPress: widget.onLongPress,
-                onPanStart: (details) {
+                onTap: widget.interactionEnabled
+                    ? () => widget.onTap(widget.thought)
+                    : null,
+                onLongPress: widget.interactionEnabled ? widget.onLongPress : null,
+                onPanStart: widget.interactionEnabled
+                    ? (details) {
                   setState(() {
                     _isDragging = true;
                     // 🚀 現在の星の表示位置をドラッグの開始位置として確定させる
@@ -325,11 +330,13 @@ class _ThoughtStarState extends State<ThoughtStar>
                     _dragVector = Offset.zero;
                     _dragPreviewCategory = widget.thought.category;
                   });
-                },
+                }
+                    : null,
 
                 // 🚀 外側のメソッドを呼び出すように変更します
-                onPanUpdate: (details) => _handleDragUpdate(details),
-                onPanEnd: (_) => _handleDragEnd(),
+                onPanUpdate:
+                    widget.interactionEnabled ? (details) => _handleDragUpdate(details) : null,
+                onPanEnd: widget.interactionEnabled ? (_) => _handleDragEnd() : null,
                 child: SizedBox(
                   width: hitSize,
                   height: hitSize,
