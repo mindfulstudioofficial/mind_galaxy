@@ -16,20 +16,8 @@ abstract final class AdMobTestDeviceDebug {
     debugPrint('');
     debugPrint('$tag RequestConfiguration を取得しています…');
     try {
-      final cfg = await MobileAds.instance.getRequestConfiguration();
-      debugPrint('$tag ── MobileAds に登録済み ──');
-      debugPrint('$tag testDeviceIds: ${cfg.testDeviceIds ?? '(未設定/null)'}');
-      debugPrint(
-        '$tag maxAdContentRating: ${cfg.maxAdContentRating ?? '(未設定)'}',
-      );
-      debugPrint(
-        '$tag tagForChildDirectedTreatment: '
-        '${cfg.tagForChildDirectedTreatment ?? '(未設定)'}',
-      );
-      debugPrint(
-        '$tag tagForUnderAgeOfConsent: '
-        '${cfg.tagForUnderAgeOfConsent ?? '(未設定)'}',
-      );
+      final cfg = await _getRequestConfigurationWithRecovery(tag);
+      _logRequestConfiguration(cfg, tag);
     } catch (e) {
       // google_mobile_ads はネイティブが未設定リストを返すと decode 側で例外になることがある。
       debugPrint(
@@ -40,6 +28,51 @@ abstract final class AdMobTestDeviceDebug {
     }
     _logHowToFindHashedDeviceIds(tag);
     debugPrint('');
+  }
+
+  static Future<RequestConfiguration> _getRequestConfigurationWithRecovery(
+    String tag,
+  ) async {
+    try {
+      return await MobileAds.instance.getRequestConfiguration();
+    } on NoSuchMethodError catch (_) {
+      // iOS で `testDeviceIds` が null のままだと decode で例外化するケースを回避する。
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(testDeviceIds: <String>[]),
+      );
+      debugPrint('$tag testDeviceIds 未設定を検知したため、空配列で初期化して再取得します。');
+      return MobileAds.instance.getRequestConfiguration();
+    }
+  }
+
+  static void _logRequestConfiguration(RequestConfiguration cfg, String tag) {
+    debugPrint('$tag ── MobileAds に登録済み ──');
+    final testDeviceIds = _safeReadTestDeviceIds(cfg, tag);
+    debugPrint('$tag testDeviceIds: ${testDeviceIds ?? '(未設定/null)'}');
+    debugPrint(
+      '$tag maxAdContentRating: ${cfg.maxAdContentRating ?? '(未設定)'}',
+    );
+    debugPrint(
+      '$tag tagForChildDirectedTreatment: '
+      '${cfg.tagForChildDirectedTreatment ?? '(未設定)'}',
+    );
+    debugPrint(
+      '$tag tagForUnderAgeOfConsent: '
+      '${cfg.tagForUnderAgeOfConsent ?? '(未設定)'}',
+    );
+  }
+
+  static List<String>? _safeReadTestDeviceIds(
+    RequestConfiguration cfg,
+    String tag,
+  ) {
+    try {
+      return cfg.testDeviceIds;
+    } catch (e) {
+      // 一部のSDK/プラットフォーム組み合わせで null decode 例外が出ることがある。
+      debugPrint('$tag testDeviceIds の取得に失敗しました: $e');
+      return null;
+    }
   }
 
   static void _logHowToFindHashedDeviceIds(String tag) {
