@@ -33,9 +33,15 @@
   "tutorialAction": "行動 →",
   "tutorialStep4": "気づきと行動で、\n星は成長する",
   "tutorialStep5": "これが、あなたの宇宙",
+  "tutorialStep6": "次から記録するときは、\n右下の + を押してね",
+  "tutorialStep7Title": "1週間後の宇宙",
+  "tutorialStep7Body": "思考が増えると、週間銀河で流れを振り返れます。\nタップして始めよう。",
   "supportDeveloperTitle": "開発者を支援",
   "meteorSupportContent": "広告を見て、12時間流星群を流しますか？",
   "cancel": "キャンセル",
+  "discardInputTitle": "入力を破棄しますか？",
+  "discardInputMessage": "保存していない入力内容は失われます。",
+  "discardInputConfirm": "破棄する",
   "approve": "続ける",
   "meteorSupportNotice": "12時間、流星群が流れます",
   "weeklyGalaxyTitle": "週間銀河",
@@ -92,5 +98,46 @@
   "weekdayThuShort": "木",
   "weekdayFriShort": "金",
   "weekdaySatShort": "土",
-  "weekdaySunShort": "日"
+  "weekdaySunShort": "日",
+  "observationSearchHint": "過去の星を検索",
+  "observationSearchNoResult": "該当なし",
+  "observationSearchResultCount": "{current}/{total}",
+  "@observationSearchResultCount": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "observationSearchPreviousTooltip": "前の検索結果へ",
+  "observationSearchNextTooltip": "次の検索結果へ",
+  "weekOfMonthLabel": "{year}年{month}月第{week}週",
+  "@weekOfMonthLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "weeklyPreviousWeekTooltip": "前の週を表示",
+  "weeklyNextWeekTooltip": "次の週を表示",
+  "weeklyBackToCurrentWeek": "今週へ戻る",
+  "noThoughtsInSelectedWeek": "この週の思考はまだありません",
+  "weeklyPickerTitle": "表示する週を選択",
+  "weeklyPickerApply": "適用",
+  "weeklyPickerYearLabel": "西暦",
+  "weeklyPickerMonthLabel": "月",
+  "weeklyPickerWeekLabel": "週",
+  "weeklyPickerYearSuffix": "年",
+  "weeklyPickerMonthSuffix": "月",
+  "weeklyPickerWeekSuffix": "週"
 }

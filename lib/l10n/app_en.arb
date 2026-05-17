@@ -33,9 +33,15 @@
   "tutorialAction": "Action: Right",
   "tutorialStep4": "With insight and action,\nyour star grows",
   "tutorialStep5": "This is your universe",
+  "tutorialStep6": "From now on, tap the +\nin the bottom-right to add thoughts",
+  "tutorialStep7Title": "Your Galaxy In A Week",
+  "tutorialStep7Body": "As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.",
   "supportDeveloperTitle": "Support Developer",
   "meteorSupportContent": "Watch an ad to unlock a 12-hour meteor shower?",
   "cancel": "Cancel",
+  "discardInputTitle": "Discard this input?",
+  "discardInputMessage": "Any unsaved text will be lost.",
+  "discardInputConfirm": "Discard",
   "approve": "Continue",
   "meteorSupportNotice": "Meteor shower activated for 12 hours",
   "weeklyGalaxyTitle": "Weekly Galaxy",
@@ -92,5 +98,46 @@
   "weekdayThuShort": "Thu",
   "weekdayFriShort": "Fri",
   "weekdaySatShort": "Sat",
-  "weekdaySunShort": "Sun"
+  "weekdaySunShort": "Sun",
+  "observationSearchHint": "Search past stars",
+  "observationSearchNoResult": "No matches",
+  "observationSearchResultCount": "{current}/{total}",
+  "@observationSearchResultCount": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "observationSearchPreviousTooltip": "Previous search result",
+  "observationSearchNextTooltip": "Next search result",
+  "weekOfMonthLabel": "Week {week}, {month}/{year}",
+  "@weekOfMonthLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "month": {
+        "type": "int"
+      },
+      "week": {
+        "type": "int"
+      }
+    }
+  },
+  "weeklyPreviousWeekTooltip": "Show previous week",
+  "weeklyNextWeekTooltip": "Show next week",
+  "weeklyBackToCurrentWeek": "Back to current week",
+  "noThoughtsInSelectedWeek": "No thoughts recorded in this week",
+  "weeklyPickerTitle": "Select week to view",
+  "weeklyPickerApply": "Apply",
+  "weeklyPickerYearLabel": "Year",
+  "weeklyPickerMonthLabel": "Month",
+  "weeklyPickerWeekLabel": "Week",
+  "weeklyPickerYearSuffix": "",
+  "weeklyPickerMonthSuffix": "",
+  "weeklyPickerWeekSuffix": "W"
 }

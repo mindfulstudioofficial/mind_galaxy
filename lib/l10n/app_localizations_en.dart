@@ -114,6 +114,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorialStep5 => 'This is your universe';
 
   @override
+  String get tutorialStep6 =>
+      'From now on, tap the +\nin the bottom-right to add thoughts';
+
+  @override
+  String get tutorialStep7Title => 'Your Galaxy In A Week';
+
+  @override
+  String get tutorialStep7Body =>
+      'As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.';
+
+  @override
   String get supportDeveloperTitle => 'Support Developer';
 
   @override
@@ -122,6 +133,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cancel => 'Cancel';
+
+  @override
+  String get discardInputTitle => 'Discard this input?';
+
+  @override
+  String get discardInputMessage => 'Any unsaved text will be lost.';
+
+  @override
+  String get discardInputConfirm => 'Discard';
 
   @override
   String get approve => 'Continue';
@@ -281,4 +301,62 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weekdaySunShort => 'Sun';
+
+  @override
+  String get observationSearchHint => 'Search past stars';
+
+  @override
+  String get observationSearchNoResult => 'No matches';
+
+  @override
+  String observationSearchResultCount(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String get observationSearchPreviousTooltip => 'Previous search result';
+
+  @override
+  String get observationSearchNextTooltip => 'Next search result';
+
+  @override
+  String weekOfMonthLabel(int year, int month, int week) {
+    return 'Week $week, $month/$year';
+  }
+
+  @override
+  String get weeklyPreviousWeekTooltip => 'Show previous week';
+
+  @override
+  String get weeklyNextWeekTooltip => 'Show next week';
+
+  @override
+  String get weeklyBackToCurrentWeek => 'Back to current week';
+
+  @override
+  String get noThoughtsInSelectedWeek => 'No thoughts recorded in this week';
+
+  @override
+  String get weeklyPickerTitle => 'Select week to view';
+
+  @override
+  String get weeklyPickerApply => 'Apply';
+
+  @override
+  String get weeklyPickerYearLabel => 'Year';
+
+  @override
+  String get weeklyPickerMonthLabel => 'Month';
+
+  @override
+  String get weeklyPickerWeekLabel => 'Week';
+
+  @override
+  String get weeklyPickerYearSuffix => '';
+
+  @override
+  String get weeklyPickerMonthSuffix => '';
+
+  @override
+  String get weeklyPickerWeekSuffix => 'W';
 }

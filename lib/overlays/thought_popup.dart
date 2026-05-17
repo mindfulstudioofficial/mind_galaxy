@@ -60,6 +60,7 @@ class _ThoughtPopupOverlay extends StatefulWidget {
 
 class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
     with TickerProviderStateMixin {
+  late final TextEditingController _contentController;
   late final TextEditingController _insightController;
   late final TextEditingController _actionController;
 
@@ -76,6 +77,9 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
   @override
   void initState() {
     super.initState();
+    _contentController = TextEditingController(
+      text: widget.thought.content,
+    );
     _insightController = TextEditingController(
       text: widget.thought.insight ?? '',
     );
@@ -123,6 +127,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
 
   @override
   void dispose() {
+    _contentController.dispose();
     _insightController.dispose();
     _actionController.dispose();
     _introController.dispose();
@@ -132,8 +137,12 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
   }
 
   Future<void> _save() async {
+    final content = _contentController.text.trim();
     final ins = _insightController.text.trim();
     final act = _actionController.text.trim();
+    if (content.isNotEmpty) {
+      widget.thought.content = content;
+    }
     widget.thought.insight = ins.isEmpty ? null : ins;
     widget.thought.action = act.isEmpty ? null : act;
     // revisitCount が 1(1日後) なら次は 3日後、2(3日後) なら次は 7日後
@@ -239,31 +248,68 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               children: [
                                 Icon(
                                   Icons.auto_awesome,
-                                  color:
-                                      AppColors.textPrimary.withValues(alpha: 0.62),
+                                  color: AppColors.textPrimary
+                                      .withValues(alpha: 0.62),
                                   size: 21,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text(
-                                    widget.thought.content,
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary
-                                          .withValues(alpha: 0.94),
-                                      fontSize: 15,
-                                      height: 1.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        loc.thoughtLabel,
+                                        style: TextStyle(
+                                          color: AppColors.textSecondary
+                                              .withValues(alpha: 0.78),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.35,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      TextField(
+                                        controller: _contentController,
+                                        minLines: 1,
+                                        maxLines: 5,
+                                        keyboardType: TextInputType.multiline,
+                                        textInputAction:
+                                            TextInputAction.newline,
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary
+                                              .withValues(alpha: 0.94),
+                                          fontSize: 15,
+                                          height: 1.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: loc.inputHint,
+                                          hintStyle: TextStyle(
+                                            color: AppColors.textSecondary
+                                                .withValues(alpha: 0.42),
+                                            fontSize: 14,
+                                          ),
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          disabledBorder: InputBorder.none,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                  vertical: 2),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 22),
+                            const SizedBox(height: 16),
                             Text(
                               loc.insightLabel,
                               style: TextStyle(
-                                color:
-                                    AppColors.textSecondary.withValues(alpha: 0.78),
+                                color: AppColors.textSecondary
+                                    .withValues(alpha: 0.78),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.35,
@@ -277,15 +323,16 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               keyboardType: TextInputType.multiline,
                               textInputAction: TextInputAction.newline,
                               style: TextStyle(
-                                color: AppColors.textPrimary.withValues(alpha: 0.96),
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.96),
                                 fontSize: 14,
                                 height: 1.5,
                               ),
                               decoration: InputDecoration(
                                 hintText: loc.popupInsightHint,
                                 hintStyle: TextStyle(
-                                  color:
-                                      AppColors.textSecondary.withValues(alpha: 0.42),
+                                  color: AppColors.textSecondary
+                                      .withValues(alpha: 0.42),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
@@ -300,8 +347,8 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                             Text(
                               loc.actionLabel,
                               style: TextStyle(
-                                color:
-                                    AppColors.textSecondary.withValues(alpha: 0.78),
+                                color: AppColors.textSecondary
+                                    .withValues(alpha: 0.78),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.35,
@@ -315,15 +362,16 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                               keyboardType: TextInputType.multiline,
                               textInputAction: TextInputAction.newline,
                               style: TextStyle(
-                                color: AppColors.textPrimary.withValues(alpha: 0.96),
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.96),
                                 fontSize: 14,
                                 height: 1.5,
                               ),
                               decoration: InputDecoration(
                                 hintText: loc.popupActionHint,
                                 hintStyle: TextStyle(
-                                  color:
-                                      AppColors.textSecondary.withValues(alpha: 0.42),
+                                  color: AppColors.textSecondary
+                                      .withValues(alpha: 0.42),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
@@ -355,15 +403,15 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                                     ),
                                   ),
                                 ).copyWith(
-                                  overlayColor:
-                                      WidgetStateProperty.resolveWith(
+                                  overlayColor: WidgetStateProperty.resolveWith(
                                     (states) =>
                                         states.contains(WidgetState.pressed)
                                             ? const Color(0x66305087)
                                             : null,
                                   ),
                                   shadowColor: WidgetStatePropertyAll(
-                                    const Color(0x99203055).withValues(alpha: 0.38),
+                                    const Color(0x99203055)
+                                        .withValues(alpha: 0.38),
                                   ),
                                 ),
                                 child: Text(

@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +14,9 @@ import '../models/thought.dart';
 import '../utils/web_image_download.dart';
 
 class WeeklyGalaxyScreen extends StatefulWidget {
-  const WeeklyGalaxyScreen({super.key});
+  final DateTime? initialWeekStart;
+
+  const WeeklyGalaxyScreen({super.key, this.initialWeekStart});
 
   @override
   State<WeeklyGalaxyScreen> createState() => _WeeklyGalaxyScreenState();
@@ -24,6 +27,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   final List<Thought> _weekThoughts = <Thought>[];
   final ScreenshotController _screenshotController = ScreenshotController();
   bool _isSharingImage = false;
+  late DateTime _selectedWeekStart;
 
   static const List<String> _layerOrder = <String>[
     'future',
@@ -36,7 +40,9 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   @override
   void initState() {
     super.initState();
-    _loadWeekThoughts();
+    _selectedWeekStart =
+        _startOfWeek(widget.initialWeekStart ?? DateTime.now());
+    _loadWeekThoughts(weekStart: _selectedWeekStart);
   }
 
   DateTime _startOfWeek(DateTime base) {
@@ -90,12 +96,10 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     return 'neutral';
   }
 
-  void _loadWeekThoughts() {
-    final box = Hive.box<Thought>('thoughts');
-    final now = DateTime.now();
-    final weekStart = _startOfWeek(now);
+  void _loadWeekThoughts({required DateTime weekStart}) {
     final weekEnd = weekStart.add(const Duration(days: 7));
-    final thoughts = box.values
+    final sourceThoughts = Hive.box<Thought>('thoughts').values.toList();
+    final thoughts = sourceThoughts
         .where((t) =>
             !t.isArchived &&
             !t.createdAt.isBefore(weekStart) &&
@@ -108,6 +112,161 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
         ..clear()
         ..addAll(thoughts);
     });
+  }
+
+  DateTime _currentWeekStart() => _startOfWeek(DateTime.now());
+
+  DateTime _weekAnchor(DateTime weekStart) {
+    return weekStart.add(const Duration(days: 3));
+  }
+
+  _WeekPickerSelection _selectionFromWeekStart(DateTime weekStart) {
+    final anchor = _weekAnchor(weekStart);
+    final week = _weekOfMonthFor(anchor.year, anchor.month, weekStart);
+    return _WeekPickerSelection(
+      year: anchor.year,
+      month: anchor.month,
+      week: week,
+    );
+  }
+
+  DateTime _firstWeekStartForMonth(int year, int month) {
+    return _startOfWeek(DateTime(year, month, 1));
+  }
+
+  int _weeksInMonth(int year, int month) {
+    final firstWeekStart = _firstWeekStartForMonth(year, month);
+    final nextMonthStart =
+        month == 12 ? DateTime(year + 1, 1, 1) : DateTime(year, month + 1, 1);
+    final lastDay = nextMonthStart.subtract(const Duration(days: 1));
+    final lastWeekStart = _startOfWeek(lastDay);
+    return (lastWeekStart.difference(firstWeekStart).inDays ~/ 7) + 1;
+  }
+
+  DateTime _weekStartForSelection(_WeekPickerSelection selection) {
+    final firstWeekStart =
+        _firstWeekStartForMonth(selection.year, selection.month);
+    return firstWeekStart.add(Duration(days: (selection.week - 1) * 7));
+  }
+
+  int _weekOfMonthFor(int year, int month, DateTime weekStart) {
+    final firstDayOfMonth = DateTime(year, month, 1);
+    final firstWeekStart = _startOfWeek(firstDayOfMonth);
+    return (weekStart.difference(firstWeekStart).inDays ~/ 7) + 1;
+  }
+
+  Future<void> _openWeekPicker() async {
+    final loc = AppLocalizations.of(context)!;
+    final currentWeekStart = _currentWeekStart();
+    final box = Hive.box<Thought>('thoughts');
+    final thoughtYears = box.values
+        .where((t) => !t.isArchived)
+        .map((t) => t.createdAt.year)
+        .toList();
+    final nowYear = DateTime.now().year;
+    final minYear = thoughtYears.isEmpty
+        ? nowYear - 2
+        : min(thoughtYears.reduce(min), nowYear);
+    final years = <int>[for (int y = minYear; y <= nowYear; y++) y];
+    var selection = _selectionFromWeekStart(_selectedWeekStart);
+    if (!years.contains(selection.year)) {
+      selection = _WeekPickerSelection(
+        year: years.last,
+        month: selection.month,
+        week: selection.week,
+      );
+    }
+
+    final picked = await showModalBottomSheet<_WeekPickerSelection>(
+      context: context,
+      backgroundColor: const Color(0xFF080E1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => _WeekPickerSheet(
+        initialSelection: selection,
+        minYear: years.first,
+        maxYear: years.last,
+        weeksInMonth: _weeksInMonth,
+      ),
+    );
+    if (!mounted || picked == null) return;
+    var targetWeekStart = _weekStartForSelection(picked);
+    if (targetWeekStart.isAfter(currentWeekStart)) {
+      targetWeekStart = currentWeekStart;
+    }
+    setState(() {
+      _selectedWeekStart = targetWeekStart;
+    });
+    _loadWeekThoughts(weekStart: targetWeekStart);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content:
+            Text(loc.weekOfMonthLabel(picked.year, picked.month, picked.week)),
+        duration: const Duration(milliseconds: 900),
+      ),
+    );
+  }
+
+  Widget _buildWeekChip({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+          color: Colors.white.withValues(alpha: 0.06),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeekNavigator(AppLocalizations loc) {
+    final selection = _selectionFromWeekStart(_selectedWeekStart);
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            loc.weeklyGalaxyTitle,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1.8,
+            ),
+          ),
+          const SizedBox(width: 10),
+          _buildWeekChip(
+            label: '${selection.year}${loc.weeklyPickerYearSuffix}',
+            onTap: _openWeekPicker,
+          ),
+          const SizedBox(width: 6),
+          _buildWeekChip(
+            label: '${selection.month}${loc.weeklyPickerMonthSuffix}',
+            onTap: _openWeekPicker,
+          ),
+          const SizedBox(width: 6),
+          _buildWeekChip(
+            label: '${selection.week}${loc.weeklyPickerWeekSuffix}',
+            onTap: _openWeekPicker,
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _shareWeeklyGalaxy() async {
@@ -217,7 +376,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF101624), Color(0xFF151E30), Color(0xFF0E1522)],
         ),
-        border: Border.all(color: _statsEmerald.withValues(alpha: 0.38), width: 0.8),
+        border: Border.all(
+            color: _statsEmerald.withValues(alpha: 0.38), width: 0.8),
         boxShadow: [
           BoxShadow(
             color: _statsEmerald.withValues(alpha: 0.12),
@@ -412,7 +572,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF101624), Color(0xFF172336), Color(0xFF0E1522)],
         ),
-        border: Border.all(color: _statsEmerald.withValues(alpha: 0.45), width: 0.8),
+        border: Border.all(
+            color: _statsEmerald.withValues(alpha: 0.45), width: 0.8),
         boxShadow: [
           BoxShadow(
             color: _statsEmerald.withValues(alpha: 0.14),
@@ -490,7 +651,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF090E19),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 0.8),
+          top: BorderSide(
+              color: Colors.white.withValues(alpha: 0.12), width: 0.8),
         ),
       ),
       child: Padding(
@@ -557,14 +719,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          loc.weeklyGalaxyTitle,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 2.4,
-          ),
-        ),
+        titleSpacing: 0,
+        title: _buildWeekNavigator(loc),
         actions: [
           IconButton(
             icon: const Icon(Icons.ios_share),
@@ -639,8 +795,9 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                           loc.weekdaySunShort,
                                         ][index],
                                         style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.45),
-                                          fontSize: 8.5,
+                                          color: Colors.white
+                                              .withValues(alpha: 0.45),
+                                          fontSize: 10.5,
                                           letterSpacing: 1.2,
                                         ),
                                       ),
@@ -692,8 +849,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                                 labelSpec.categoryMaxLines,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              color: categoryColor
-                                                  .withValues(alpha: 0.78),
+                                              color: categoryColor.withValues(
+                                                  alpha: 0.78),
                                               fontSize:
                                                   labelSpec.categoryFontSize,
                                               fontWeight: FontWeight.w300,
@@ -706,8 +863,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
-                                              color: categoryColor
-                                                  .withValues(alpha: 0.58),
+                                              color: categoryColor.withValues(
+                                                  alpha: 0.58),
                                               fontSize: labelSpec.countFontSize,
                                               fontWeight: FontWeight.w300,
                                               letterSpacing:
@@ -724,7 +881,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                             if (_weekThoughts.isEmpty)
                               Center(
                                 child: Text(
-                                  loc.noThoughtsThisWeek,
+                                  loc.noThoughtsInSelectedWeek,
                                   style: TextStyle(
                                     color: Colors.white.withValues(alpha: 0.45),
                                     fontSize: 13,
@@ -763,6 +920,226 @@ class _WeeklySummary {
     required this.insightCount,
     required this.actionCount,
   });
+}
+
+class _WeekPickerSelection {
+  final int year;
+  final int month;
+  final int week;
+
+  const _WeekPickerSelection({
+    required this.year,
+    required this.month,
+    required this.week,
+  });
+}
+
+class _WeekPickerSheet extends StatefulWidget {
+  final _WeekPickerSelection initialSelection;
+  final int minYear;
+  final int maxYear;
+  final int Function(int year, int month) weeksInMonth;
+
+  const _WeekPickerSheet({
+    required this.initialSelection,
+    required this.minYear,
+    required this.maxYear,
+    required this.weeksInMonth,
+  });
+
+  @override
+  State<_WeekPickerSheet> createState() => _WeekPickerSheetState();
+}
+
+class _WeekPickerSheetState extends State<_WeekPickerSheet> {
+  late int _year;
+  late int _month;
+  late int _week;
+
+  late FixedExtentScrollController _yearController;
+  late FixedExtentScrollController _monthController;
+  late FixedExtentScrollController _weekController;
+
+  List<int> get _years =>
+      <int>[for (int y = widget.minYear; y <= widget.maxYear; y++) y];
+
+  int get _weeksInCurrentMonth => widget.weeksInMonth(_year, _month);
+
+  @override
+  void initState() {
+    super.initState();
+    _year = widget.initialSelection.year.clamp(widget.minYear, widget.maxYear);
+    _month = widget.initialSelection.month.clamp(1, 12);
+    _week = widget.initialSelection.week
+        .clamp(1, widget.weeksInMonth(_year, _month));
+
+    _yearController = FixedExtentScrollController(
+      initialItem: _years.indexOf(_year),
+    );
+    _monthController = FixedExtentScrollController(initialItem: _month - 1);
+    _weekController = FixedExtentScrollController(initialItem: _week - 1);
+  }
+
+  @override
+  void dispose() {
+    _yearController.dispose();
+    _monthController.dispose();
+    _weekController.dispose();
+    super.dispose();
+  }
+
+  void _onYearChanged(int index) {
+    setState(() {
+      _year = _years[index];
+      final maxWeek = _weeksInCurrentMonth;
+      if (_week > maxWeek) {
+        _week = maxWeek;
+        _weekController.jumpToItem(_week - 1);
+      }
+    });
+  }
+
+  void _onMonthChanged(int index) {
+    setState(() {
+      _month = index + 1;
+      final maxWeek = _weeksInCurrentMonth;
+      if (_week > maxWeek) {
+        _week = maxWeek;
+        _weekController.jumpToItem(_week - 1);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    const itemStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0.8,
+    );
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(loc.cancel),
+                ),
+                const Spacer(),
+                Text(
+                  loc.weeklyPickerTitle,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => Navigator.pop(
+                    context,
+                    _WeekPickerSelection(
+                        year: _year, month: _month, week: _week),
+                  ),
+                  child: Text(loc.weeklyPickerApply),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 190,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(loc.weeklyPickerYearLabel,
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
+                        Expanded(
+                          child: CupertinoPicker(
+                            itemExtent: 40,
+                            useMagnifier: true,
+                            magnification: 1.1,
+                            scrollController: _yearController,
+                            onSelectedItemChanged: _onYearChanged,
+                            children: _years
+                                .map((value) => Center(
+                                      child: Text('$value', style: itemStyle),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(loc.weeklyPickerMonthLabel,
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
+                        Expanded(
+                          child: CupertinoPicker(
+                            itemExtent: 40,
+                            useMagnifier: true,
+                            magnification: 1.1,
+                            scrollController: _monthController,
+                            onSelectedItemChanged: _onMonthChanged,
+                            children: List<Widget>.generate(
+                              12,
+                              (index) => Center(
+                                child: Text('${index + 1}', style: itemStyle),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(loc.weeklyPickerWeekLabel,
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
+                        Expanded(
+                          child: CupertinoPicker(
+                            itemExtent: 40,
+                            useMagnifier: true,
+                            magnification: 1.1,
+                            scrollController: _weekController,
+                            onSelectedItemChanged: (index) {
+                              setState(() {
+                                _week = index + 1;
+                              });
+                            },
+                            children: List<Widget>.generate(
+                              _weeksInCurrentMonth,
+                              (index) => Center(
+                                child: Text('${index + 1}', style: itemStyle),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _LabelLayoutSpec {
@@ -969,13 +1346,44 @@ class _WeeklyGalaxyLayout {
     final demoAnchors = <String, List<Offset>>{};
     final plotted = <_PlottedStar>[];
 
-    final phaseByCategory = <String, double>{
-      'future': 0.15,
-      'emotion': 1.05,
-      'action': 1.95,
-      'past': 0.65,
-      'neutral': 1.4,
-    };
+    double yOnDemoCurve({
+      required String category,
+      required double xNorm,
+      required double baseline,
+      required double halfBand,
+      required double upperBound,
+      required double lowerBound,
+    }) {
+      double clampY(double y) => y.clamp(upperBound + 5, lowerBound - 5);
+
+      switch (category) {
+        case 'future':
+          // ほぼ水平な帯
+          return clampY(
+            baseline + sin(2 * pi * xNorm * 0.4) * halfBand * 0.05,
+          );
+        case 'emotion':
+          // 波型（週の中盤でうねり）
+          return clampY(
+            baseline + sin(2 * pi * xNorm + 0.85) * halfBand * 0.52,
+          );
+        case 'action':
+          // 山型（水〜木付近でピーク）
+          final t = (xNorm - 0.46) / 0.20;
+          final bell = exp(-t * t);
+          return clampY(baseline + halfBand * 0.44 * bell);
+        case 'past':
+          // 週後半寄りのうねり
+          return clampY(
+            baseline + sin(2 * pi * xNorm + 2.15) * halfBand * 0.50,
+          );
+        case 'neutral':
+        default:
+          return clampY(
+            baseline + sin(2 * pi * xNorm * 0.55) * halfBand * 0.06,
+          );
+      }
+    }
 
     for (final cat in layerOrder) {
       final catThoughts = thoughts
@@ -995,18 +1403,19 @@ class _WeeklyGalaxyLayout {
           : (baseline + (yMap[layerOrder[categoryIndex + 1]] ?? baseline)) *
               0.5;
       final halfBand = max(10.0, (lowerBound - upperBound) * 0.5);
-      final phase = phaseByCategory[cat] ?? 0.0;
-
-      double yOnCurve(double xNorm) {
-        final wobble = sin(2 * pi * xNorm * 0.88 + phase) * halfBand * 0.52;
-        return (baseline + wobble).clamp(upperBound + 5, lowerBound - 5);
-      }
 
       final anchors = <Offset>[];
       for (var j = 0; j < anchorCount; j++) {
         final xNorm = j / (anchorCount - 1);
         final x = graphLeft + graphWidth * xNorm;
-        final y = yOnCurve(xNorm);
+        final y = yOnDemoCurve(
+          category: cat,
+          xNorm: xNorm,
+          baseline: baseline,
+          halfBand: halfBand,
+          upperBound: upperBound,
+          lowerBound: lowerBound,
+        );
         anchors.add(Offset(x, y));
       }
       demoAnchors[cat] = anchors;
@@ -1015,7 +1424,14 @@ class _WeeklyGalaxyLayout {
         final t = catThoughts[i];
         final xNorm = (i + 0.5) / catThoughts.length;
         final xBase = graphLeft + graphWidth * xNorm;
-        final yBase = yOnCurve(xNorm);
+        final yBase = yOnDemoCurve(
+          category: cat,
+          xNorm: xNorm,
+          baseline: baseline,
+          halfBand: halfBand,
+          upperBound: upperBound,
+          lowerBound: lowerBound,
+        );
         final rnd = Random(t.id * 1315423 + cat.hashCode);
         final x = (xBase + (rnd.nextDouble() - 0.5) * 12)
             .clamp(graphLeft + 3, graphLeft + graphWidth - 3);
@@ -1635,7 +2051,8 @@ class _DensityOrbPainter extends CustomPainter {
         center.dy + sin(seedA + drift * 0.25) * r * 0.72,
       );
       final point = Paint()
-        ..color = color.withValues(alpha: 0.35 + (0.4 * (0.5 + 0.5 * sin(drift))))
+        ..color =
+            color.withValues(alpha: 0.35 + (0.4 * (0.5 + 0.5 * sin(drift))))
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8)
         ..blendMode = BlendMode.plus;
       canvas.drawCircle(p, 1.2 + (seedR * 1.3), point);

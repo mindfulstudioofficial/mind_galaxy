@@ -34,12 +34,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const double _observationSpacing = 140.0;
   static const int _meteorMinActive = 1;
   static const int _meteorMaxActive = 3;
+  static const int _tutorialInteractiveStep = 8;
   final List<Offset> _smallStars = [];
   final Random _random = Random();
   final List<Thought> _thoughts = [];
   final List<Thought> _observationThoughts = [];
   bool _isObservationMode = false;
   double _observationScrollOffset = 0.0;
+  final TextEditingController _observationSearchController =
+      TextEditingController();
+  String _observationSearchQuery = '';
+  final List<int> _observationSearchMatches = <int>[];
+  int _observationSearchMatchCursor = -1;
   int _thoughtIdCounter = 0;
 
   Offset _deleteHolePosition = Offset.zero; // 右上のゴミ箱用
@@ -71,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final settingsBox = Hive.box('settings');
     final isTutorialDone = settingsBox.get('tutorialDone', defaultValue: false);
     if (isTutorialDone) {
-      _tutorialStep = 7; // 完了済みのステップへ飛ばす
+      _tutorialStep = _tutorialInteractiveStep; // 完了済みのステップへ飛ばす
     }
     final allThoughts = _loadThoughtsFromBox(box);
     _observationThoughts
@@ -161,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _meteorFrameTimer?.cancel();
     _rewardedAd?.dispose();
     _controller.dispose();
+    _observationSearchController.dispose();
     super.dispose();
   }
 
@@ -402,6 +409,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _thoughts.remove(thought);
           _observationThoughts.remove(thought);
+          _rebuildObservationSearchMatches();
         });
       },
     );
@@ -497,6 +505,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _insertIntoVisibleThoughts(Thought thought) {
     _observationThoughts.add(thought);
     _observationThoughts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _rebuildObservationSearchMatches();
     _thoughts.add(thought);
     _thoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (_thoughts.length > _maxVisibleThoughts) {
@@ -523,25 +532,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _tutorialVeil() {
-    if (_tutorialStep >= 6) return const SizedBox.shrink();
+    if (_tutorialStep >= _tutorialInteractiveStep) {
+      return const SizedBox.shrink();
+    }
     return Positioned.fill(
       child: Container(color: Colors.black.withValues(alpha: 0.6)),
     );
   }
 
   Widget _buildTutorialForeground() {
-    if (_tutorialStep >= 6) return const SizedBox.shrink();
+    if (_tutorialStep >= _tutorialInteractiveStep) {
+      return const SizedBox.shrink();
+    }
     final size = MediaQuery.of(context).size;
+    final viewPadding = MediaQuery.of(context).viewPadding;
     final loc = AppLocalizations.of(context)!;
     // Shorter phones (e.g. iPhone 8 Plus ~736pt): step-3 caption, quadrant hints, and
     // wrapped English lines share the vertical band—keep caption high and hints lower;
     // avoid lifting "Up: Future" into the caption (was translate -12).
     final tutorialCompactLayout = size.height <= 760;
+    final tutorialControlCompactLayout = size.height <= 740;
+    final tutorialBottomControlOffset =
+        viewPadding.bottom + (tutorialControlCompactLayout ? 10.0 : 16.0);
+    final tutorialControlButtonSize =
+        tutorialControlCompactLayout ? 50.0 : 56.0;
     final tutorialStep3TextAlignment = tutorialCompactLayout
         ? const Alignment(0, -0.72)
         : const Alignment(0, -0.48);
     final tutorialDragHintsTop =
         tutorialCompactLayout ? size.height * 0.27 : 120.0;
+    const tutorialSpotlightSize = 86.0;
+    final tutorialSpotlightPadding =
+        (tutorialSpotlightSize - tutorialControlButtonSize) / 2;
 
     return Positioned.fill(
       child: Stack(
@@ -604,7 +626,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Align(
                 alignment: const Alignment(0, -0.45),
                 child: _buildTutorialText(loc.tutorialStep2)),
-          if (_tutorialStep == 3)
+          if (_tutorialStep == 3 && !_isDragging)
             Align(
                 alignment: tutorialStep3TextAlignment,
                 child: _buildTutorialText(loc.tutorialStep3)),
@@ -725,15 +747,359 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   await Future.delayed(const Duration(seconds: 2));
                   if (!mounted) return;
 
-                  await Hive.box('settings').put('tutorialDone', true);
-                  if (!mounted) return;
-
                   setState(() => _tutorialStep = 6);
                 },
                 child: AnimatedScale(
                   scale: _isDragging ? 1.5 : 1.0,
                   duration: const Duration(milliseconds: 150),
                   child: Icon(Icons.star, color: _tutorialStarColor, size: 40),
+                ),
+              ),
+            ),
+          if (_tutorialStep == 6)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _tutorialStep = 7),
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: const Alignment(0, -0.45),
+                      child: _buildTutorialText(loc.tutorialStep6),
+                    ),
+                    Positioned(
+                      right: 16 - tutorialSpotlightPadding,
+                      bottom: tutorialBottomControlOffset -
+                          tutorialSpotlightPadding,
+                      child: IgnorePointer(
+                        child: Container(
+                          width: tutorialSpotlightSize,
+                          height: tutorialSpotlightSize,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.65),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.28),
+                                blurRadius: 16,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (_tutorialStep == 7)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () async {
+                  await Hive.box('settings').put('tutorialDone', true);
+                  if (!mounted) return;
+                  setState(() => _tutorialStep = _tutorialInteractiveStep);
+                },
+                child: Align(
+                  alignment: const Alignment(0, -0.12),
+                  child: Container(
+                    width: min(size.width - 40, 360.0),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D1730).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.insights,
+                          color: Colors.lightBlueAccent,
+                          size: 30,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          loc.tutorialStep7Title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          loc.tutorialStep7Body,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            height: 1.45,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          height: 246,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF1A2E57),
+                                Color(0xFF0E1730),
+                              ],
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.14),
+                            ),
+                          ),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _TutorialWeeklyPreviewPainter(),
+                                ),
+                              ),
+                              Positioned(
+                                left: 78,
+                                right: 12,
+                                top: 8,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      loc.weekdayMonShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdayTueShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdayWedShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdayThuShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdayFriShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdaySatShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.weekdaySunShort,
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.42),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                top: 28,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.categoryFuture,
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.starsCount(220),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.34),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                top: 64,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.categoryEmotion,
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.starsCount(220),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.34),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                top: 100,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.categoryAction,
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.starsCount(220),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.34),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                top: 136,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.categoryPast,
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.starsCount(220),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.34),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                left: 8,
+                                top: 172,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.categoryUncategorized,
+                                      style: TextStyle(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                    Text(
+                                      loc.starsCount(220),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.34),
+                                        fontSize: 9,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTutorialWeeklyMetricCard(
+                                title: loc.weeklyDensity,
+                                value: '100%',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildTutorialWeeklyMetricCard(
+                                title: loc.weeklyInsightsLabel,
+                                value: loc.starsCount(1100),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildTutorialWeeklyMetricCard(
+                                title: loc.weeklyActionsLabel,
+                                value: loc.starsCount(1100),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -746,18 +1112,67 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-          builder: (context) => const InputScreen(), fullscreenDialog: true),
+        builder: (context) => const InputScreen(),
+        fullscreenDialog: true,
+      ),
     );
     if (!mounted || result == null) return;
     await _addThoughtFromInputResult(result);
     if (!mounted) return;
   }
 
+  Widget _buildTutorialWeeklyMetricCard({
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF1B2F52),
+            Color(0xFF111C36),
+          ],
+        ),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 10,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF9CF8FF),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openWeeklyGalaxy() async {
     HapticFeedback.selectionClick();
     await Navigator.push<void>(
       context,
-      MaterialPageRoute(builder: (context) => const WeeklyGalaxyScreen()),
+      MaterialPageRoute(
+        builder: (context) => const WeeklyGalaxyScreen(),
+      ),
     );
   }
 
@@ -1093,7 +1508,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Colors.transparent,
                   ],
           ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.85),
+          border: Border.all(
+              color: Colors.white.withValues(alpha: 0.2), width: 0.85),
           boxShadow: [
             BoxShadow(
               color: Colors.white.withValues(alpha: 0.08),
@@ -1251,6 +1667,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _isObservationMode = !_isObservationMode;
       if (_isObservationMode) {
         _setObservationToLatest(viewportHeight);
+      } else {
+        FocusScope.of(context).unfocus();
       }
     });
   }
@@ -1260,18 +1678,207 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return "${dt.year}.$m";
   }
 
+  bool _thoughtContainsObservationKeyword(Thought thought, String keyword) {
+    final content = thought.content.toLowerCase();
+    final insight = (thought.insight ?? '').toLowerCase();
+    final action = (thought.action ?? '').toLowerCase();
+    return content.contains(keyword) ||
+        insight.contains(keyword) ||
+        action.contains(keyword);
+  }
+
+  void _rebuildObservationSearchMatches() {
+    final normalized = _observationSearchQuery.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      _observationSearchMatches.clear();
+      _observationSearchMatchCursor = -1;
+      return;
+    }
+    Thought? activeThought;
+    if (_observationSearchMatchCursor >= 0 &&
+        _observationSearchMatchCursor < _observationSearchMatches.length) {
+      final activeIndex =
+          _observationSearchMatches[_observationSearchMatchCursor];
+      if (activeIndex >= 0 && activeIndex < _observationThoughts.length) {
+        activeThought = _observationThoughts[activeIndex];
+      }
+    }
+    final matches = <int>[];
+    for (int i = 0; i < _observationThoughts.length; i++) {
+      if (_thoughtContainsObservationKeyword(
+          _observationThoughts[i], normalized)) {
+        matches.add(i);
+      }
+    }
+    _observationSearchMatches
+      ..clear()
+      ..addAll(matches);
+    if (_observationSearchMatches.isEmpty) {
+      _observationSearchMatchCursor = -1;
+      return;
+    }
+    if (activeThought == null) {
+      _observationSearchMatchCursor = 0;
+      return;
+    }
+    final activeThoughtNonNull = activeThought;
+    final nextCursor = _observationSearchMatches.indexWhere((index) {
+      final candidate = _observationThoughts[index];
+      return identical(candidate, activeThoughtNonNull) ||
+          candidate.id == activeThoughtNonNull.id;
+    });
+    _observationSearchMatchCursor = nextCursor >= 0 ? nextCursor : 0;
+  }
+
+  void _updateObservationSearch(String query) {
+    setState(() {
+      _observationSearchQuery = query;
+      _rebuildObservationSearchMatches();
+    });
+  }
+
+  void _jumpToObservationMatch({
+    required bool forward,
+    required double viewportHeight,
+  }) {
+    if (_observationSearchMatches.isEmpty) return;
+    setState(() {
+      if (_observationSearchMatchCursor == -1) {
+        _observationSearchMatchCursor = 0;
+      } else if (forward) {
+        _observationSearchMatchCursor = (_observationSearchMatchCursor + 1) %
+            _observationSearchMatches.length;
+      } else {
+        _observationSearchMatchCursor = (_observationSearchMatchCursor -
+                1 +
+                _observationSearchMatches.length) %
+            _observationSearchMatches.length;
+      }
+      final targetIndex =
+          _observationSearchMatches[_observationSearchMatchCursor];
+      _observationScrollOffset = (targetIndex * _observationSpacing)
+          .clamp(0.0, _observationMaxScroll(viewportHeight));
+    });
+  }
+
+  Widget _buildObservationSearchPanel({
+    required Size size,
+    required double topControlOffset,
+    required double controlButtonSize,
+  }) {
+    final loc = AppLocalizations.of(context)!;
+    final hasQuery = _observationSearchQuery.trim().isNotEmpty;
+    final hasMatch = _observationSearchMatches.isNotEmpty;
+    final resultLabel = !hasQuery
+        ? ''
+        : hasMatch
+            ? loc.observationSearchResultCount(
+                _observationSearchMatchCursor + 1,
+                _observationSearchMatches.length,
+              )
+            : loc.observationSearchNoResult;
+    return Positioned(
+      left: 14,
+      right: 14,
+      top: topControlOffset + controlButtonSize + 8,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: const Color(0xCC0A1326),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.search, color: Colors.white70, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _observationSearchController,
+                textInputAction: TextInputAction.search,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: loc.observationSearchHint,
+                  hintStyle: const TextStyle(color: Colors.white38),
+                ),
+                onChanged: _updateObservationSearch,
+                onSubmitted: (_) => _jumpToObservationMatch(
+                    forward: true, viewportHeight: size.height),
+              ),
+            ),
+            if (hasQuery)
+              Text(
+                resultLabel,
+                style: TextStyle(
+                  color: hasMatch
+                      ? Colors.lightBlueAccent.withValues(alpha: 0.92)
+                      : Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              color: hasMatch ? Colors.white70 : Colors.white24,
+              tooltip: loc.observationSearchPreviousTooltip,
+              onPressed: hasMatch
+                  ? () => _jumpToObservationMatch(
+                        forward: false,
+                        viewportHeight: size.height,
+                      )
+                  : null,
+            ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+              color: hasMatch ? Colors.white70 : Colors.white24,
+              tooltip: loc.observationSearchNextTooltip,
+              onPressed: hasMatch
+                  ? () => _jumpToObservationMatch(
+                        forward: true,
+                        viewportHeight: size.height,
+                      )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildObservationStars(Size size) {
     final centerX = size.width / 2;
     final centerY = size.height * 0.5;
     const focusRange = 100.0;
     const cullMargin = 220.0;
     final widgets = <Widget>[];
+    if (_observationThoughts.isEmpty) return widgets;
+    final matchSet = _observationSearchMatches.toSet();
+    final activeMatchIndex = (_observationSearchMatchCursor >= 0 &&
+            _observationSearchMatchCursor < _observationSearchMatches.length)
+        ? _observationSearchMatches[_observationSearchMatchCursor]
+        : -1;
+    final startRaw = ((_observationScrollOffset - centerY - cullMargin) /
+            _observationSpacing)
+        .floor();
+    final endRaw =
+        ((_observationScrollOffset - centerY + size.height + cullMargin) /
+                _observationSpacing)
+            .ceil();
+    final startIndex = startRaw.clamp(0, _observationThoughts.length - 1);
+    final endIndex = endRaw.clamp(0, _observationThoughts.length - 1);
 
-    for (int i = 0; i < _observationThoughts.length; i++) {
+    for (int i = startIndex; i <= endIndex; i++) {
       final thought = _observationThoughts[i];
       final baseY = i * _observationSpacing;
       final y = baseY - _observationScrollOffset + centerY;
-      if (y < -cullMargin || y > size.height + cullMargin) continue;
+      final isMatched = matchSet.contains(i);
+      final isActiveMatch = activeMatchIndex == i;
 
       final wave = sin(i * 0.72) * 90;
       final spread = min(110.0, 30.0 + i * 0.9);
@@ -1283,7 +1890,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final focusFactor =
           (1.0 - (distanceToCenter / focusRange)).clamp(0.0, 1.0);
       final glow = ((thought.glowIntensity - 1.0) * 10).clamp(0.0, 22.0);
-      final focusedGlow = glow + (6.0 * focusFactor);
+      final matchBoost = isActiveMatch
+          ? 12.0
+          : isMatched
+              ? 5.5
+              : 0.0;
+      final focusedGlow = glow + (6.0 * focusFactor) + matchBoost;
       final focusedStarSize = starSize + (2.0 * focusFactor);
 
       widgets.add(
@@ -1300,8 +1912,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 boxShadow: focusedGlow > 0
                     ? [
                         BoxShadow(
-                          color: starColor
-                              .withValues(alpha: 0.18 + (0.18 * focusFactor)),
+                          color: starColor.withValues(
+                              alpha: 0.18 +
+                                  (0.18 * focusFactor) +
+                                  (isMatched ? 0.12 : 0)),
                           blurRadius: focusedGlow,
                           spreadRadius: focusedGlow * 0.1,
                         ),
@@ -1538,7 +2152,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1), width: 0.5),
+                          color: Colors.white.withValues(alpha: 0.1),
+                          width: 0.5),
                     ),
                   ),
                 ),
@@ -1546,7 +2161,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
 
             IgnorePointer(
-              ignoring: _tutorialStep < 6 || _isObservationMode,
+              ignoring: _tutorialStep < _tutorialInteractiveStep ||
+                  _isObservationMode,
               child: Center(
                 child: GestureDetector(
                   onTap: () {
@@ -1580,18 +2196,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     revisitPosition: _revisitCenterPosition,
                     isTarget: revisitCandidates.contains(thought),
                     suppressDetailPopup:
-                        _tutorialStep < 6 || _isObservationMode,
-                    interactionEnabled: _tutorialStep >= 6,
+                        _tutorialStep < _tutorialInteractiveStep ||
+                            _isObservationMode,
+                    interactionEnabled:
+                        _tutorialStep >= _tutorialInteractiveStep,
                     onThoughtPersisted: () => setState(() {}),
                     onThoughtRemovedFromHive: () => setState(() {
                       _thoughts.remove(thought);
                       _observationThoughts.remove(thought);
+                      _rebuildObservationSearchMatches();
                     }),
                     onCategoryChanged: (newCategory) async {
                       setState(() {
                         // 1. 画面上の星のデータを更新
                         thought.category = newCategory;
-                        if (_tutorialStep < 6) {
+                        if (_tutorialStep < _tutorialInteractiveStep) {
                           _tutorialStarColor = _getCategoryColor(newCategory);
                         }
                       });
@@ -1615,7 +2234,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onLongPress: () {},
                   )),
 
-            if (_tutorialStep >= 6)
+            if (_tutorialStep >= _tutorialInteractiveStep)
               Positioned(
                 left: 16,
                 top: topControlOffset,
@@ -1629,7 +2248,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-            if (_tutorialStep >= 6)
+            if (_tutorialStep >= _tutorialInteractiveStep)
               Positioned(
                 left: 0,
                 right: 0,
@@ -1644,7 +2263,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-            if (_tutorialStep >= 6)
+            if (_tutorialStep >= _tutorialInteractiveStep && _isObservationMode)
+              _buildObservationSearchPanel(
+                size: size,
+                topControlOffset: topControlOffset,
+                controlButtonSize: controlButtonSize,
+              ),
+
+            if (_tutorialStep >= _tutorialInteractiveStep)
               Positioned(
                 left: 16,
                 bottom: bottomControlOffset,
@@ -1657,7 +2283,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-            if (_tutorialStep >= 6)
+            if (_tutorialStep >= _tutorialInteractiveStep)
               Positioned(
                 left: 0,
                 right: 0,
@@ -1796,6 +2422,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() {
         _thoughts.remove(thought);
         _observationThoughts.remove(thought);
+        _rebuildObservationSearchMatches();
       });
       if (thought.isInBox) {
         await thought.delete(); // Hiveから削除
@@ -1899,4 +2526,99 @@ class _MeteorShowerPainter extends CustomPainter {
   bool shouldRepaint(covariant _MeteorShowerPainter oldDelegate) {
     return oldDelegate.now != now || oldDelegate.trails != trails;
   }
+}
+
+class _TutorialWeeklyPreviewPainter extends CustomPainter {
+  static const _laneColors = <Color>[
+    Color(0xFF87DFFF),
+    Color(0xFFFFA3E2),
+    Color(0xFFFFE89C),
+    Color(0xFFE1B2FF),
+    Color(0xFFF2F6FF),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const left = 74.0;
+    final right = size.width - 10;
+    final laneHeight = (size.height - 42) / 5;
+
+    for (var lane = 0; lane < 5; lane++) {
+      final y = 24 + lane * laneHeight + laneHeight * 0.45;
+      final color = _laneColors[lane];
+      final phase = lane * 0.6;
+      final path = Path()..moveTo(left, y);
+      if (lane == 0 || lane == 4) {
+        path.cubicTo(
+          size.width * 0.34,
+          y - 1.4,
+          size.width * 0.65,
+          y + 1.4,
+          right,
+          y + 0.4,
+        );
+      } else if (lane == 1) {
+        path.cubicTo(
+          size.width * 0.30,
+          y + 22,
+          size.width * 0.66,
+          y - 20,
+          right,
+          y + 6,
+        );
+      } else if (lane == 2) {
+        path.cubicTo(
+          size.width * 0.30,
+          y - 10,
+          size.width * 0.64,
+          y + 11,
+          right,
+          y + 1.5,
+        );
+      } else {
+        path.cubicTo(
+          size.width * 0.30,
+          y - 16,
+          size.width * 0.66,
+          y + 19,
+          right,
+          y - 7,
+        );
+      }
+
+      final glowPaint = Paint()
+        ..color = color.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lane == 2 ? 4.8 : 4.2
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+      final corePaint = Paint()
+        ..color = color.withValues(alpha: 0.92)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = lane == 2 ? 2.2 : 1.9
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.3);
+      canvas.drawPath(path, glowPaint);
+      canvas.drawPath(path, corePaint);
+
+      for (var i = 0; i < 138; i++) {
+        final t = i / 137;
+        final x = lerpDouble(left, right, t)!;
+        final wave =
+            sin((t * pi * 2.4) + phase) * (lane == 0 || lane == 4 ? 1.0 : 2.6);
+        final micro = sin((t * pi * 12.0) + phase * 2.1) * 1.4;
+        final py = y + wave + micro;
+        final twinkle = ((sin((i + 1) * 1.7 + lane) + 1) / 2);
+        final radius = 0.7 + (twinkle * 0.9);
+        final pointPaint = Paint()
+          ..color = color.withValues(alpha: 0.55 + twinkle * 0.4)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8)
+          ..blendMode = BlendMode.plus;
+        canvas.drawCircle(Offset(x, py), radius, pointPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TutorialWeeklyPreviewPainter oldDelegate) =>
+      false;
 }

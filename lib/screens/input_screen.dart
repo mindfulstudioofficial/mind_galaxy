@@ -64,6 +64,9 @@ class _InputScreenState extends State<InputScreen>
   late Animation<double> _inputPulseAnim;
 
   bool _isSaving = false;
+  bool _isNavigatingAway = false;
+  bool _isDiscardDialogOpen = false;
+  bool _isModeToggleLocked = false;
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
   bool _hasBannerAdError = false;
@@ -256,6 +259,70 @@ class _InputScreenState extends State<InputScreen>
     });
   }
 
+  bool _hasUnsavedChanges() {
+    return _controller.text.trim().isNotEmpty ||
+        insightController.text.trim().isNotEmpty ||
+        actionController.text.trim().isNotEmpty;
+  }
+
+  Future<bool> _confirmDiscardIfNeeded() async {
+    if (_isDiscardDialogOpen) return false;
+    if (!_hasUnsavedChanges()) return true;
+    final loc = AppLocalizations.of(context)!;
+    _isDiscardDialogOpen = true;
+    try {
+      final shouldDiscard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF0D1322),
+          title: Text(
+            loc.discardInputTitle,
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            loc.discardInputMessage,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(loc.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(loc.discardInputConfirm),
+            ),
+          ],
+        ),
+      );
+      return shouldDiscard == true;
+    } finally {
+      _isDiscardDialogOpen = false;
+    }
+  }
+
+  Future<void> _handleBackToHome() async {
+    if (_isNavigatingAway) return;
+    _isNavigatingAway = true;
+    try {
+      if (!await _confirmDiscardIfNeeded()) return;
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } finally {
+      _isNavigatingAway = false;
+    }
+  }
+
+  Future<void> _toggleInputMode() async {
+    if (_isModeToggleLocked) return;
+    _isModeToggleLocked = true;
+    if (mounted) {
+      setState(() => isBulkMode = !isBulkMode);
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 160));
+    _isModeToggleLocked = false;
+  }
+
   Widget? _buildUnifiedCounter(
     BuildContext context, {
     required int currentLength,
@@ -359,313 +426,349 @@ class _InputScreenState extends State<InputScreen>
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final fixedStarTop = isBulkMode
-        ? (keyboardVisible ? 6.0 : 14.0)
+        ? (keyboardVisible ? 24.0 : 64.0)
         : (keyboardVisible ? 38.0 : 46.0);
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      resizeToAvoidBottomInset: true, // キーボード表示時にリサイズ
-      body: Stack(
-        children: [
-          // ===============================================
-          // 🚀 背景の成長・発光・粒子する星（位置調整付き）
-          // ===============================================
-          if (!_isSaving)
-            AnimatedBuilder(
-              animation: Listenable.merge([
-                _idleController,
-                _inputPulseController,
-                _controller,
-                insightController,
-                actionController,
-              ]),
-              builder: (context, _) {
-                final pulseBoost = _inputPulseAnim.value;
-                final hasGlow = insightLen > 0;
-                final dynamicGlow =
-                    hasGlow ? glowRadius * _pulseAnim.value : 0.0;
-                final pulseT = (_inputPulseController.value).clamp(0.0, 1.0);
-                final boostedStarColor =
-                    Color.lerp(starColor, Colors.amberAccent, pulseT * 0.55) ??
-                        starColor;
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (_isNavigatingAway) return;
+        _isNavigatingAway = true;
+        try {
+          final navigator = Navigator.of(context);
+          if (!await _confirmDiscardIfNeeded()) return;
+          if (!navigator.mounted) return;
+          if (navigator.canPop()) {
+            await navigator.maybePop();
+          }
+        } finally {
+          _isNavigatingAway = false;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        resizeToAvoidBottomInset: true, // キーボード表示時にリサイズ
+        body: Stack(
+          children: [
+            // ===============================================
+            // 🚀 背景の成長・発光・粒子する星（位置調整付き）
+            // ===============================================
+            if (!_isSaving)
+              AnimatedBuilder(
+                animation: Listenable.merge([
+                  _idleController,
+                  _inputPulseController,
+                  _controller,
+                  insightController,
+                  actionController,
+                ]),
+                builder: (context, _) {
+                  final pulseBoost = _inputPulseAnim.value;
+                  final hasGlow = insightLen > 0;
+                  final dynamicGlow =
+                      hasGlow ? glowRadius * _pulseAnim.value : 0.0;
+                  final pulseT = (_inputPulseController.value).clamp(0.0, 1.0);
+                  final boostedStarColor = Color.lerp(
+                          starColor, Colors.amberAccent, pulseT * 0.55) ??
+                      starColor;
 
-                return Positioned(
-                  left: 0,
-                  right: 0,
-                  top: fixedStarTop,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    width: 200, // 粒子も含めた計算領域
-                    height: 200,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: hasGlow
-                          ? [
-                              BoxShadow(
-                                color: Colors.white
-                                    .withValues(alpha: 0.16 + pulseT * 0.08),
-                                blurRadius: dynamicGlow * 0.9,
-                                spreadRadius: (_glowIntensity - 1.0) * 1.6,
-                              ),
-                              BoxShadow(
-                                color: Colors.cyanAccent
-                                    .withValues(alpha: 0.08 + pulseT * 0.08),
-                                blurRadius: dynamicGlow * 0.45,
-                                spreadRadius: (_glowIntensity - 1.0) * 0.5,
-                              ),
-                            ]
-                          : const [],
-                    ),
-                    child: Stack(
+                  return Positioned(
+                    left: 0,
+                    right: 0,
+                    top: fixedStarTop,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      width: 200, // 粒子も含めた計算領域
+                      height: 200,
                       alignment: Alignment.center,
-                      children: [
-                        // 中央の星（STEP1: サイズのみ変化）
-                        TweenAnimationBuilder<double>(
-                          tween: Tween<double>(end: starSize * pulseBoost),
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, animatedSize, _) {
-                            return Icon(
-                              Icons.star,
-                              color: boostedStarColor,
-                              size: animatedSize,
-                            );
-                          },
-                        ),
-
-                        // STEP3: 粒子のみ強化（背景は暗いまま）
-                        if (particleCount > 0)
-                          ...List.generate(particleCount, (i) {
-                            final angle = (i / particleCount) * 2 * pi;
-                            final currentRadius =
-                                particleRadius * _pulseAnim.value;
-                            final noiseX = (_random.nextDouble() - 0.5) * 3;
-                            final noiseY = (_random.nextDouble() - 0.5) * 3;
-
-                            return Transform.translate(
-                              offset: Offset(
-                                cos(angle) * currentRadius + noiseX,
-                                sin(angle) * currentRadius + noiseY,
-                              ),
-                              child: Opacity(
-                                opacity: _particleOpacityAnim.value,
-                                child: Icon(
-                                  Icons.circle,
-                                  size: 1.2 + (_particleSpread - 1.0) * 2.6,
-                                  color: boostedStarColor,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: hasGlow
+                            ? [
+                                BoxShadow(
+                                  color: Colors.white
+                                      .withValues(alpha: 0.16 + pulseT * 0.08),
+                                  blurRadius: dynamicGlow * 0.9,
+                                  spreadRadius: (_glowIntensity - 1.0) * 1.6,
                                 ),
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-
-          // ===============================================
-          // 入力UI（スクロール可能）
-          // ===============================================
-          if (!_isSaving)
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.only(
-                          bottom: 24 + bottomSafeInset + 8,
-                        ),
-                        child: Column(
-                          children: [
-                            const SizedBox(height: 10),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      setState(() => isBulkMode = !isBulkMode),
-                                  child: Text(
-                                    isBulkMode ? loc.simpleMode : loc.bulkMode,
-                                    style:
-                                        const TextStyle(color: Colors.white70),
-                                  ),
+                                BoxShadow(
+                                  color: Colors.cyanAccent
+                                      .withValues(alpha: 0.08 + pulseT * 0.08),
+                                  blurRadius: dynamicGlow * 0.45,
+                                  spreadRadius: (_glowIntensity - 1.0) * 0.5,
                                 ),
-                              ],
-                            ),
-
-                            // モードに応じて上部余白を調整（星の位置に合わせる）
-                            SizedBox(height: isBulkMode ? 28 : 170),
-
-                            // メイン思考入力
-                            TextField(
-                              controller: _controller,
-                              maxLength: 200,
-                              minLines: 1,
-                              maxLines: 3,
-                              autofocus: !isBulkMode, // シンプル入力時はオートフォーカス
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 18),
-                              onChanged: (value) {
-                                setState(() {
-                                  _starSize =
-                                      _sizeFromContentLength(value.length);
-                                });
-                                _triggerInputPulse();
-                              },
-                              decoration: InputDecoration(
-                                hintText: loc.inputHint,
-                                hintMaxLines: 2,
-                                hintStyle: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 15,
-                                  height: 1.25,
-                                ),
-                                filled: true,
-                                fillColor: Colors.white10,
-                                border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(14)),
-                                counter: _buildUnifiedCounter(
-                                  context,
-                                  currentLength: contentLen,
-                                  maxLength: 200,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // まとめ入力フィールド
-                            if (isBulkMode) ...[
-                              TextField(
-                                controller: insightController,
-                                focusNode: _insightFocusNode,
-                                maxLength: 200,
-                                maxLines: 2,
-                                style: const TextStyle(color: Colors.white),
-                                onChanged: (_) {
-                                  setState(() {
-                                    _glowIntensity = _glowFromInsightLength(
-                                        insightController.text.length);
-                                  });
-                                  _triggerInputPulse();
-                                  if (insightLen == 1) {
-                                    HapticFeedback
-                                        .lightImpact(); // 書き始めにフィードバック
-                                  }
-                                },
-                                decoration: InputDecoration(
-                                  hintText: loc.insightHint,
-                                  hintStyle:
-                                      const TextStyle(color: Colors.white30),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.05),
-                                  border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14)),
-                                  counter: _buildUnifiedCounter(
-                                    context,
-                                    currentLength: insightLen,
-                                    maxLength: 200,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: actionController,
-                                focusNode: _actionFocusNode,
-                                maxLength: 200,
-                                maxLines: 2,
-                                style: const TextStyle(color: Colors.white),
-                                onChanged: (_) {
-                                  setState(() {
-                                    _particleSpread = _spreadFromActionLength(
-                                        actionController.text.length);
-                                  });
-                                  _triggerInputPulse();
-                                  if (actionLen == 1) {
-                                    HapticFeedback
-                                        .mediumImpact(); // 行動の書き始めは少し強く
-                                  }
-                                },
-                                decoration: InputDecoration(
-                                  hintText: loc.actionHint,
-                                  hintStyle:
-                                      const TextStyle(color: Colors.white38),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.05),
-                                  border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14)),
-                                  counter: _buildUnifiedCounter(
-                                    context,
-                                    currentLength: actionLen,
-                                    maxLength: 200,
-                                  ),
-                                ),
-                              ),
-                            ],
-
-                            const SizedBox(height: 30),
-                            ElevatedButton(
-                              onPressed: _saveThought,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 40, vertical: 14),
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                              ),
-                              child: Text(loc.saveThought),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
-                        ),
+                              ]
+                            : const [],
                       ),
-                    ),
-                    ValueListenableBuilder<Box>(
-                      valueListenable: Hive.box('settings').listenable(
-                        keys: const ['isPremium'],
-                      ),
-                      builder: (context, _, __) {
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: 8 + bottomSafeInset,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // 中央の星（STEP1: サイズのみ変化）
+                          TweenAnimationBuilder<double>(
+                            tween: Tween<double>(end: starSize * pulseBoost),
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, animatedSize, _) {
+                              return Icon(
+                                Icons.star,
+                                color: boostedStarColor,
+                                size: animatedSize,
+                              );
+                            },
                           ),
-                          child: _buildBottomBannerAd(
-                            isPremium: AppSettings.isPremium,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
-          // ===============================================
-          // ⭐ 保存時の吸い込みアニメーション（そのまま残す）
-          // ===============================================
-          if (_isSaving)
-            Center(
-              child: AnimatedBuilder(
-                animation: _saveAnimController,
-                builder: (_, __) {
-                  return Transform.translate(
-                    offset: _saveMoveAnim.value,
-                    child: Transform.scale(
-                      scale: _saveScaleAnim.value,
-                      child: Opacity(
-                        opacity: _saveOpacityAnim.value,
-                        child: const Icon(Icons.star,
-                            color: Colors.white, size: 40),
+                          // STEP3: 粒子のみ強化（背景は暗いまま）
+                          if (particleCount > 0)
+                            ...List.generate(particleCount, (i) {
+                              final angle = (i / particleCount) * 2 * pi;
+                              final currentRadius =
+                                  particleRadius * _pulseAnim.value;
+                              final noiseX = (_random.nextDouble() - 0.5) * 3;
+                              final noiseY = (_random.nextDouble() - 0.5) * 3;
+
+                              return Transform.translate(
+                                offset: Offset(
+                                  cos(angle) * currentRadius + noiseX,
+                                  sin(angle) * currentRadius + noiseY,
+                                ),
+                                child: Opacity(
+                                  opacity: _particleOpacityAnim.value,
+                                  child: Icon(
+                                    Icons.circle,
+                                    size: 1.2 + (_particleSpread - 1.0) * 2.6,
+                                    color: boostedStarColor,
+                                  ),
+                                ),
+                              );
+                            }),
+                        ],
                       ),
                     ),
                   );
                 },
               ),
-            ),
-        ],
+
+            // ===============================================
+            // 入力UI（スクロール可能）
+            // ===============================================
+            if (!_isSaving)
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom: 24 + bottomSafeInset + 8,
+                          ),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                  ),
+                                  TextButton(
+                                    onPressed: _toggleInputMode,
+                                    child: Text(
+                                      isBulkMode
+                                          ? loc.simpleMode
+                                          : loc.bulkMode,
+                                      style: const TextStyle(
+                                          color: Colors.white70),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: _handleBackToHome,
+                                    icon: const Icon(
+                                      Icons.home_outlined,
+                                      color: Colors.white70,
+                                    ),
+                                    tooltip: 'Home',
+                                  ),
+                                ],
+                              ),
+
+                              // モードに応じて上部余白を調整（星の位置に合わせる）
+                              SizedBox(height: isBulkMode ? 84 : 170),
+
+                              // メイン思考入力
+                              TextField(
+                                controller: _controller,
+                                maxLength: 200,
+                                minLines: 1,
+                                maxLines: 3,
+                                autofocus: !isBulkMode, // シンプル入力時はオートフォーカス
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 18),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _starSize =
+                                        _sizeFromContentLength(value.length);
+                                  });
+                                  _triggerInputPulse();
+                                },
+                                decoration: InputDecoration(
+                                  hintText: loc.inputHint,
+                                  hintMaxLines: 2,
+                                  hintStyle: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 15,
+                                    height: 1.25,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white10,
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14)),
+                                  counter: _buildUnifiedCounter(
+                                    context,
+                                    currentLength: contentLen,
+                                    maxLength: 200,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // まとめ入力フィールド
+                              if (isBulkMode) ...[
+                                TextField(
+                                  controller: insightController,
+                                  focusNode: _insightFocusNode,
+                                  maxLength: 200,
+                                  maxLines: 2,
+                                  style: const TextStyle(color: Colors.white),
+                                  onChanged: (_) {
+                                    setState(() {
+                                      _glowIntensity = _glowFromInsightLength(
+                                          insightController.text.length);
+                                    });
+                                    _triggerInputPulse();
+                                    if (insightLen == 1) {
+                                      HapticFeedback
+                                          .lightImpact(); // 書き始めにフィードバック
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: loc.insightHint,
+                                    hintStyle:
+                                        const TextStyle(color: Colors.white30),
+                                    filled: true,
+                                    fillColor:
+                                        Colors.white.withValues(alpha: 0.05),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14)),
+                                    counter: _buildUnifiedCounter(
+                                      context,
+                                      currentLength: insightLen,
+                                      maxLength: 200,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: actionController,
+                                  focusNode: _actionFocusNode,
+                                  maxLength: 200,
+                                  maxLines: 2,
+                                  style: const TextStyle(color: Colors.white),
+                                  onChanged: (_) {
+                                    setState(() {
+                                      _particleSpread = _spreadFromActionLength(
+                                          actionController.text.length);
+                                    });
+                                    _triggerInputPulse();
+                                    if (actionLen == 1) {
+                                      HapticFeedback
+                                          .mediumImpact(); // 行動の書き始めは少し強く
+                                    }
+                                  },
+                                  decoration: InputDecoration(
+                                    hintText: loc.actionHint,
+                                    hintStyle:
+                                        const TextStyle(color: Colors.white38),
+                                    filled: true,
+                                    fillColor:
+                                        Colors.white.withValues(alpha: 0.05),
+                                    border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(14)),
+                                    counter: _buildUnifiedCounter(
+                                      context,
+                                      currentLength: actionLen,
+                                      maxLength: 200,
+                                    ),
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 30),
+                              ElevatedButton(
+                                onPressed: _saveThought,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 40, vertical: 14),
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: Colors.black,
+                                ),
+                                child: Text(loc.saveThought),
+                              ),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+                      ValueListenableBuilder<Box>(
+                        valueListenable: Hive.box('settings').listenable(
+                          keys: const ['isPremium'],
+                        ),
+                        builder: (context, _, __) {
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: 8 + bottomSafeInset,
+                            ),
+                            child: _buildBottomBannerAd(
+                              isPremium: AppSettings.isPremium,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ===============================================
+            // ⭐ 保存時の吸い込みアニメーション（そのまま残す）
+            // ===============================================
+            if (_isSaving)
+              Center(
+                child: AnimatedBuilder(
+                  animation: _saveAnimController,
+                  builder: (_, __) {
+                    return Transform.translate(
+                      offset: _saveMoveAnim.value,
+                      child: Transform.scale(
+                        scale: _saveScaleAnim.value,
+                        child: Opacity(
+                          opacity: _saveOpacityAnim.value,
+                          child: const Icon(Icons.star,
+                              color: Colors.white, size: 40),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

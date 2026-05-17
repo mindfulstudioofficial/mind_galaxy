@@ -296,6 +296,24 @@ abstract class AppLocalizations {
   /// **'This is your universe'**
   String get tutorialStep5;
 
+  /// No description provided for @tutorialStep6.
+  ///
+  /// In en, this message translates to:
+  /// **'From now on, tap the +\nin the bottom-right to add thoughts'**
+  String get tutorialStep6;
+
+  /// No description provided for @tutorialStep7Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Galaxy In A Week'**
+  String get tutorialStep7Title;
+
+  /// No description provided for @tutorialStep7Body.
+  ///
+  /// In en, this message translates to:
+  /// **'As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.'**
+  String get tutorialStep7Body;
+
   /// No description provided for @supportDeveloperTitle.
   ///
   /// In en, this message translates to:
@@ -313,6 +331,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get cancel;
+
+  /// No description provided for @discardInputTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard this input?'**
+  String get discardInputTitle;
+
+  /// No description provided for @discardInputMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Any unsaved text will be lost.'**
+  String get discardInputMessage;
+
+  /// No description provided for @discardInputConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discardInputConfirm;
 
   /// No description provided for @approve.
   ///
@@ -613,6 +649,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sun'**
   String get weekdaySunShort;
+
+  /// No description provided for @observationSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search past stars'**
+  String get observationSearchHint;
+
+  /// No description provided for @observationSearchNoResult.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get observationSearchNoResult;
+
+  /// No description provided for @observationSearchResultCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{current}/{total}'**
+  String observationSearchResultCount(int current, int total);
+
+  /// No description provided for @observationSearchPreviousTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous search result'**
+  String get observationSearchPreviousTooltip;
+
+  /// No description provided for @observationSearchNextTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Next search result'**
+  String get observationSearchNextTooltip;
+
+  /// No description provided for @weekOfMonthLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Week {week}, {month}/{year}'**
+  String weekOfMonthLabel(int year, int month, int week);
+
+  /// No description provided for @weeklyPreviousWeekTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Show previous week'**
+  String get weeklyPreviousWeekTooltip;
+
+  /// No description provided for @weeklyNextWeekTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Show next week'**
+  String get weeklyNextWeekTooltip;
+
+  /// No description provided for @weeklyBackToCurrentWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to current week'**
+  String get weeklyBackToCurrentWeek;
+
+  /// No description provided for @noThoughtsInSelectedWeek.
+  ///
+  /// In en, this message translates to:
+  /// **'No thoughts recorded in this week'**
+  String get noThoughtsInSelectedWeek;
+
+  /// No description provided for @weeklyPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select week to view'**
+  String get weeklyPickerTitle;
+
+  /// No description provided for @weeklyPickerApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get weeklyPickerApply;
+
+  /// No description provided for @weeklyPickerYearLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Year'**
+  String get weeklyPickerYearLabel;
+
+  /// No description provided for @weeklyPickerMonthLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Month'**
+  String get weeklyPickerMonthLabel;
+
+  /// No description provided for @weeklyPickerWeekLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Week'**
+  String get weeklyPickerWeekLabel;
+
+  /// No description provided for @weeklyPickerYearSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get weeklyPickerYearSuffix;
+
+  /// No description provided for @weeklyPickerMonthSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **''**
+  String get weeklyPickerMonthSuffix;
+
+  /// No description provided for @weeklyPickerWeekSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'W'**
+  String get weeklyPickerWeekSuffix;
 }
 
 class _AppLocalizationsDelegate

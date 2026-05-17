@@ -108,6 +108,15 @@ class AppLocalizationsJa extends AppLocalizations {
   String get tutorialStep5 => 'これが、あなたの宇宙';
 
   @override
+  String get tutorialStep6 => '次から記録するときは、\n右下の + を押してね';
+
+  @override
+  String get tutorialStep7Title => '1週間後の宇宙';
+
+  @override
+  String get tutorialStep7Body => '思考が増えると、週間銀河で流れを振り返れます。\nタップして始めよう。';
+
+  @override
   String get supportDeveloperTitle => '開発者を支援';
 
   @override
@@ -115,6 +124,15 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get cancel => 'キャンセル';
+
+  @override
+  String get discardInputTitle => '入力を破棄しますか？';
+
+  @override
+  String get discardInputMessage => '保存していない入力内容は失われます。';
+
+  @override
+  String get discardInputConfirm => '破棄する';
 
   @override
   String get approve => '続ける';
@@ -268,4 +286,62 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get weekdaySunShort => '日';
+
+  @override
+  String get observationSearchHint => '過去の星を検索';
+
+  @override
+  String get observationSearchNoResult => '該当なし';
+
+  @override
+  String observationSearchResultCount(int current, int total) {
+    return '$current/$total';
+  }
+
+  @override
+  String get observationSearchPreviousTooltip => '前の検索結果へ';
+
+  @override
+  String get observationSearchNextTooltip => '次の検索結果へ';
+
+  @override
+  String weekOfMonthLabel(int year, int month, int week) {
+    return '$year年$month月第$week週';
+  }
+
+  @override
+  String get weeklyPreviousWeekTooltip => '前の週を表示';
+
+  @override
+  String get weeklyNextWeekTooltip => '次の週を表示';
+
+  @override
+  String get weeklyBackToCurrentWeek => '今週へ戻る';
+
+  @override
+  String get noThoughtsInSelectedWeek => 'この週の思考はまだありません';
+
+  @override
+  String get weeklyPickerTitle => '表示する週を選択';
+
+  @override
+  String get weeklyPickerApply => '適用';
+
+  @override
+  String get weeklyPickerYearLabel => '西暦';
+
+  @override
+  String get weeklyPickerMonthLabel => '月';
+
+  @override
+  String get weeklyPickerWeekLabel => '週';
+
+  @override
+  String get weeklyPickerYearSuffix => '年';
+
+  @override
+  String get weeklyPickerMonthSuffix => '月';
+
+  @override
+  String get weeklyPickerWeekSuffix => '週';
 }
