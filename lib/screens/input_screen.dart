@@ -425,6 +425,10 @@ class _InputScreenState extends State<InputScreen>
     final loc = AppLocalizations.of(context)!;
     final bottomSafeInset = MediaQuery.of(context).viewPadding.bottom;
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+    final showFooterAd = !keyboardVisible && !AppSettings.isPremium && kShowAds;
+    final formBottomPadding = keyboardVisible
+        ? 24.0 + bottomSafeInset
+        : (showFooterAd ? 104.0 : 32.0) + bottomSafeInset;
     final fixedStarTop = isBulkMode
         ? (keyboardVisible ? 24.0 : 64.0)
         : (keyboardVisible ? 38.0 : 46.0);
@@ -561,9 +565,7 @@ class _InputScreenState extends State<InputScreen>
                     children: [
                       Expanded(
                         child: SingleChildScrollView(
-                          padding: EdgeInsets.only(
-                            bottom: 24 + bottomSafeInset + 8,
-                          ),
+                          padding: EdgeInsets.only(bottom: formBottomPadding),
                           child: Column(
                             children: [
                               const SizedBox(height: 8),
@@ -709,7 +711,7 @@ class _InputScreenState extends State<InputScreen>
                                 ),
                               ],
 
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 12),
                               ElevatedButton(
                                 onPressed: _saveThought,
                                 style: ElevatedButton.styleFrom(
@@ -725,21 +727,25 @@ class _InputScreenState extends State<InputScreen>
                           ),
                         ),
                       ),
-                      ValueListenableBuilder<Box>(
-                        valueListenable: Hive.box('settings').listenable(
-                          keys: const ['isPremium'],
-                        ),
-                        builder: (context, _, __) {
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: 8 + bottomSafeInset,
-                            ),
-                            child: _buildBottomBannerAd(
-                              isPremium: AppSettings.isPremium,
-                            ),
-                          );
-                        },
-                      ),
+                      if (showFooterAd)
+                        ValueListenableBuilder<Box>(
+                          valueListenable: Hive.box('settings').listenable(
+                            keys: const ['isPremium'],
+                          ),
+                          builder: (context, _, __) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                top: 6,
+                                bottom: 8 + bottomSafeInset,
+                              ),
+                              child: _buildBottomBannerAd(
+                                isPremium: AppSettings.isPremium,
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        SizedBox(height: 10 + bottomSafeInset),
                     ],
                   ),
                 ),
