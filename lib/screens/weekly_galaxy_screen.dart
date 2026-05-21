@@ -158,8 +158,9 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   Future<void> _openWeekPicker() async {
     final loc = AppLocalizations.of(context)!;
     final currentWeekStart = _currentWeekStart();
-    final box = Hive.box<Thought>('thoughts');
-    final thoughtYears = box.values
+    final sourceThoughts = Hive.box<Thought>('thoughts').values.toList();
+    final thoughtYears = sourceThoughts
+        .cast<Thought>()
         .where((t) => !t.isArchived)
         .map((t) => t.createdAt.year)
         .toList();
@@ -465,17 +466,17 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     _WeeklySummary summary,
   ) {
     const minLabelWidth = 86.0;
-    final maxLabelWidth = constraints.maxWidth * 0.34;
-    const baseCategorySize = 12.0;
-    const baseCountSize = 10.0;
-    const minCategorySize = 9.6;
-    const minCountSize = 8.6;
+    final maxLabelWidth = constraints.maxWidth * 0.37;
+    const baseCategorySize = 12.8;
+    const baseCountSize = 12.8;
+    const minCategorySize = 10.2;
+    const minCountSize = 10.2;
     const sidePadding = 16.0;
 
     var categorySize = baseCategorySize;
     var countSize = baseCountSize;
-    var categorySpacing = 1.0;
-    var countSpacing = 1.0;
+    var categorySpacing = 0.9;
+    var countSpacing = 0.9;
 
     double requiredWidthFor({
       required double categoryFontSize,
@@ -523,8 +524,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       categorySize =
           (baseCategorySize * scale).clamp(minCategorySize, baseCategorySize);
       countSize = (baseCountSize * scale).clamp(minCountSize, baseCountSize);
-      categorySpacing = (1.0 * scale).clamp(0.55, 1.0);
-      countSpacing = (1.0 * scale).clamp(0.55, 1.0);
+      categorySpacing = (0.9 * scale).clamp(0.5, 0.9);
+      countSpacing = (0.9 * scale).clamp(0.5, 0.9);
       requiredWidth = requiredWidthFor(
         categoryFontSize: categorySize,
         countFontSize: countSize,
@@ -547,8 +548,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       categoryLetterSpacing: categorySpacing,
       countLetterSpacing: countSpacing,
       categoryMaxLines: shouldWrapCategory ? 2 : 1,
-      labelOverlayHeight: shouldWrapCategory ? 54.0 : 44.0,
-      labelTopOffset: shouldWrapCategory ? -18.0 : -14.0,
+      labelOverlayHeight: shouldWrapCategory ? 60.0 : 48.0,
+      labelTopOffset: shouldWrapCategory ? -20.0 : -15.0,
     );
   }
 
@@ -797,8 +798,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                                         style: TextStyle(
                                           color: Colors.white
                                               .withValues(alpha: 0.45),
-                                          fontSize: 10.5,
-                                          letterSpacing: 1.2,
+                                          fontSize: 12.2,
+                                          letterSpacing: 1.1,
                                         ),
                                       ),
                                     ),

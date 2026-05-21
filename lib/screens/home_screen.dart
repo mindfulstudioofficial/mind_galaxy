@@ -1170,9 +1170,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticFeedback.selectionClick();
     await Navigator.push<void>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const WeeklyGalaxyScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const WeeklyGalaxyScreen()),
     );
   }
 
@@ -1633,7 +1631,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       glowIntensity: (result['glowIntensity'] as double?) ?? 1.0,
       particleSpread: (result['particleSpread'] as double?) ?? 1.0,
     );
-
     final box = Hive.box<Thought>('thoughts');
     await box.add(newThought);
     if (!mounted) return;
