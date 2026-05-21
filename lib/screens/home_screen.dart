@@ -1687,6 +1687,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         action.contains(keyword);
   }
 
+  String _sanitizeObservationSupplement(String raw) {
+    return raw.replaceFirst(RegExp(r'^\s*[💡🏃]\s*'), '');
+  }
+
   void _rebuildObservationSearchMatches() {
     final normalized = _observationSearchQuery.trim().toLowerCase();
     if (normalized.isEmpty) {
@@ -1930,8 +1934,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
       if (focusFactor > 0) {
         final thoughtTrim = thought.content.trim();
-        final insightRaw = thought.insight?.trim() ?? "";
-        final actionRaw = thought.action?.trim() ?? "";
+        final insightRaw =
+            _sanitizeObservationSupplement(thought.insight?.trim() ?? "");
+        final actionRaw =
+            _sanitizeObservationSupplement(thought.action?.trim() ?? "");
         final placeLabelOnLeft = x > (size.width * 0.5);
         final textAlign = placeLabelOnLeft ? TextAlign.right : TextAlign.left;
         final crossAxisAlignment = placeLabelOnLeft
@@ -1968,7 +1974,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           if (insightRaw.isNotEmpty) ...[
             if (thoughtTrim.isNotEmpty) const SizedBox(height: blockGap),
             Text(
-              '💡 $insightRaw',
+              insightRaw,
               textAlign: textAlign,
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,
@@ -1992,7 +1998,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (thoughtTrim.isNotEmpty || insightRaw.isNotEmpty)
               const SizedBox(height: blockGap),
             Text(
-              '🏃 $actionRaw',
+              actionRaw,
               textAlign: textAlign,
               maxLines: maxObservationTextLines,
               overflow: TextOverflow.ellipsis,

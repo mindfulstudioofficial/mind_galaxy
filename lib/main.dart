@@ -54,17 +54,18 @@ void main() async {
   await AppSettings.ensureDefaults();
   await _runCategoryCanonicalMigrationOnce();
   await _removeLegacyScreenshotSeedThoughtsOnce();
-  await _removeScreenshotDemoArtifactsOnce();
   runApp(const MindGalaxyApp());
 }
 
 /// One-time cleanup of demo `Thought`s left by the removed screenshot-seeding build.
 const String _legacyScreenshotClusterId = 'mg_screenshot_seed';
-const String _legacyScreenshotPurgeDoneKey = 'legacy_mg_screenshot_seed_purged_v1';
+const String _legacyScreenshotPurgeDoneKey =
+    'legacy_mg_screenshot_seed_purged_v1';
 
 Future<void> _removeLegacyScreenshotSeedThoughtsOnce() async {
   final settings = Hive.box('settings');
-  if (settings.get(_legacyScreenshotPurgeDoneKey, defaultValue: false) as bool) {
+  if (settings.get(_legacyScreenshotPurgeDoneKey, defaultValue: false)
+      as bool) {
     return;
   }
   final box = Hive.box<Thought>('thoughts');
@@ -74,27 +75,6 @@ Future<void> _removeLegacyScreenshotSeedThoughtsOnce() async {
     }
   }
   await settings.put(_legacyScreenshotPurgeDoneKey, true);
-}
-
-/// One-time cleanup after removing the screenshot demo mode build.
-const String _screenshotDemoClusterId = 'screenshot_demo';
-const String _screenshotDemoPurgeDoneKey = 'screenshot_demo_purged_v1';
-
-Future<void> _removeScreenshotDemoArtifactsOnce() async {
-  final settings = Hive.box('settings');
-  if (settings.get(_screenshotDemoPurgeDoneKey, defaultValue: false) as bool) {
-    return;
-  }
-  final box = Hive.box<Thought>('thoughts');
-  for (final t in box.values.toList()) {
-    if (t.clusterId == _screenshotDemoClusterId) {
-      await t.delete();
-    }
-  }
-  if (settings.containsKey('screenshotDemoMode')) {
-    await settings.delete('screenshotDemoMode');
-  }
-  await settings.put(_screenshotDemoPurgeDoneKey, true);
 }
 
 Future<void> _runCategoryCanonicalMigrationOnce() async {

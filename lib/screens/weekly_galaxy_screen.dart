@@ -1876,72 +1876,140 @@ class _StatConstellationPainter extends CustomPainter {
     required this.particleMode,
   });
 
-  List<Offset> _buildPoints(Size size) {
-    final starCount = count.clamp(1, 18);
-    final center = Offset(size.width * 0.5, size.height * 0.48);
-    final baseRadius = min(size.width, size.height) * 0.28;
-    final points = <Offset>[];
-    for (var i = 0; i < starCount; i++) {
-      final angle = (-pi / 2) + (2 * pi * i / starCount);
-      final radiusMod = particleMode
-          ? 0.985 + sin((2 * pi * i / starCount) * 2.0) * 0.018
-          : 0.88 + ((i % 3) * 0.08);
-      points.add(
-        Offset(
-          center.dx + cos(angle) * baseRadius * radiusMod,
-          center.dy + sin(angle) * baseRadius * radiusMod,
-        ),
-      );
+  List<Offset> _templatePoints(Size size) {
+    final width = size.width;
+    final height = size.height;
+
+    if (particleMode) {
+      // Action: upward staircase (small consistent steps).
+      return <Offset>[
+        Offset(width * 0.16, height * 0.66), // step 1 start
+        Offset(width * 0.33, height * 0.66), // step 1 run
+        Offset(width * 0.33, height * 0.57), // step 1 rise
+        Offset(width * 0.50, height * 0.57), // step 2 run
+        Offset(width * 0.50, height * 0.48), // step 2 rise
+        Offset(width * 0.67, height * 0.48), // step 3 run
+        Offset(width * 0.67, height * 0.39), // step 3 rise
+        Offset(width * 0.84, height * 0.39), // step 3 top run
+      ];
     }
-    return points;
+
+    // Insight: five-pointed star.
+    return <Offset>[
+      Offset(width * 0.50, height * 0.22), // top
+      Offset(width * 0.66, height * 0.74), // lower-right
+      Offset(width * 0.25, height * 0.40), // upper-left
+      Offset(width * 0.75, height * 0.40), // upper-right
+      Offset(width * 0.34, height * 0.74), // lower-left
+    ];
+  }
+
+  List<List<int>> _templateSegments() {
+    if (particleMode) {
+      return const <List<int>>[
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+      ];
+    }
+
+    return const <List<int>>[
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4],
+      [4, 0],
+    ];
+  }
+
+  int _activePointCount(int pointTotal) {
+    final safeCount = count.clamp(0, 1100);
+    if (safeCount <= 0) return 0;
+    final scaled = ((safeCount / 18.0) * pointTotal).ceil();
+    return scaled.clamp(1, pointTotal);
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final points = _buildPoints(size);
+    final points = _templatePoints(size);
+    final segments = _templateSegments();
     if (points.isEmpty) return;
+    final activePointCount = _activePointCount(points.length);
+    final activeIndices = <int>{for (var i = 0; i < activePointCount; i++) i};
+    final intensity = (count / 18.0).clamp(0.0, 1.0);
 
-    if (points.length >= 2) {
-      final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (var i = 1; i < points.length; i++) {
-        path.lineTo(points[i].dx, points[i].dy);
-      }
-      if (points.length > 2) {
-        path.lineTo(points.first.dx, points.first.dy);
+    // Always draw a faint skeleton so shape stays recognizable with low counts.
+    for (final segment in segments) {
+      final a = points[segment[0]];
+      final b = points[segment[1]];
+      final ghostGlow = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = particleMode ? 1.9 : 2.1
+        ..color = color.withValues(alpha: particleMode ? 0.08 : 0.1)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.0)
+        ..blendMode = BlendMode.plus;
+      final ghostLine = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9
+        ..color = color.withValues(alpha: particleMode ? 0.2 : 0.24)
+        ..blendMode = BlendMode.plus;
+      canvas.drawLine(a, b, ghostGlow);
+      canvas.drawLine(a, b, ghostLine);
+    }
+
+    for (final segment in segments) {
+      final start = segment[0];
+      final end = segment[1];
+      if (!activeIndices.contains(start) || !activeIndices.contains(end)) {
+        continue;
       }
 
+      final a = points[start];
+      final b = points[end];
+      final activeGlow = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = particleMode ? 2.4 : 2.6
+        ..color = color.withValues(alpha: 0.18 + intensity * 0.2)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4)
+        ..blendMode = BlendMode.plus;
       final linePaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..color = color.withValues(alpha: 0.55)
+        ..strokeWidth = 1.15
+        ..color = color.withValues(alpha: 0.5 + intensity * 0.28)
         ..blendMode = BlendMode.plus;
-      final lineGlow = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..color = color.withValues(alpha: 0.22)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2)
-        ..blendMode = BlendMode.plus;
-      canvas.drawPath(path, lineGlow);
-      canvas.drawPath(path, linePaint);
+      canvas.drawLine(a, b, activeGlow);
+      canvas.drawLine(a, b, linePaint);
     }
 
     final random = Random(count * (particleMode ? 37 : 17));
-    for (final point in points) {
+    for (var pointIndex = 0; pointIndex < points.length; pointIndex++) {
+      final point = points[pointIndex];
+      final isActive = activeIndices.contains(pointIndex);
       final core = Paint()
-        ..color = color.withValues(alpha: 0.9)
+        ..color = color.withValues(alpha: isActive ? 0.92 : 0.46)
         ..blendMode = BlendMode.plus;
-      canvas.drawCircle(point, 1.9, core);
+      canvas.drawCircle(point, isActive ? 2.0 : 1.4, core);
 
       final glow = Paint()
-        ..color = color.withValues(alpha: particleMode ? 0.44 : 0.58)
-        ..maskFilter =
-            MaskFilter.blur(BlurStyle.normal, particleMode ? 5.6 : 7.5)
+        ..color = color.withValues(
+          alpha: isActive
+              ? (particleMode ? 0.32 : 0.5) + intensity * 0.2
+              : (particleMode ? 0.14 : 0.2),
+        )
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, isActive ? 5.8 : 3.4)
         ..blendMode = BlendMode.plus;
-      canvas.drawCircle(point, particleMode ? 4.7 : 5.8, glow);
+      canvas.drawCircle(
+          point, isActive ? (particleMode ? 4.9 : 5.9) : 3.2, glow);
 
-      if (particleMode) {
-        for (var i = 0; i < 4; i++) {
-          final baseAngle = (2 * pi * i / 4) + random.nextDouble() * 0.18;
+      if (particleMode && isActive) {
+        final particleBurst = 3 + (intensity * 3).round();
+        for (var i = 0; i < particleBurst; i++) {
+          final baseAngle =
+              (2 * pi * i / particleBurst) + random.nextDouble() * 0.18;
           final r = 4.8 + random.nextDouble() * 4.6;
           final particle = Offset(
             point.dx + cos(baseAngle) * r,
