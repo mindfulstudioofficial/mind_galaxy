@@ -1,7 +1,7 @@
 name: mindgalaxy
 description: Flutter Web app with emoji central star and popping thought stars
 publish_to: 'none'
-version: 1.0.2+2
+version: 1.3.1+2
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -20,6 +20,11 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  google_sign_in: 6.2.1
+  sign_in_with_apple: ^6.1.0
+  crypto: ^3.0.6
   google_mobile_ads: ^4.0.0
   url_launcher: ^6.3.2
 
@@ -35,6 +40,7 @@ dev_dependencies:
 # Transitive (path_provider_windows / share_plus); 5.1.x breaks on current Dart (UnmodifiableUint8ListView).
 dependency_overrides:
   win32: ^5.10.0
+  google_sign_in_ios: 5.7.0
   # google_mobile_ads pins webview 4.5 → old android impl uses removed v1 Registrar API on current Flutter SDK.
   webview_flutter_android: ^4.12.0
   # url_launcher 6.3.x can still resolve stale android embedder.

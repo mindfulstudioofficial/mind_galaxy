@@ -37,7 +37,7 @@
   "tutorialStep7Title": "1週間後の宇宙",
   "tutorialStep7Body": "思考が増えると、週間銀河で流れを振り返れます。\nタップして始めよう。",
   "supportDeveloperTitle": "開発者を支援",
-  "meteorSupportContent": "広告を見て、12時間流星群を流しますか？",
+  "meteorSupportContent": "広告を見て、12時間流星群を表示しますか？",
   "cancel": "キャンセル",
   "discardInputTitle": "入力を破棄しますか？",
   "discardInputMessage": "保存していない入力内容は失われます。",
@@ -59,6 +59,32 @@
   "categoryUncategorized": "未分類",
   "meteorRewardAd": "流星群のリワード広告",
   "futureLoginFeature": "ログインは近日公開予定です",
+  "guestModeStatus": "ゲストモード（ログインなし）",
+  "loginOptionalDescription": "ログインなしで利用できます。同期したいときだけログインしてください。",
+  "loginBenefitSummary": "ログインすると、将来の端末同期・引き継ぎに備えられます。今はゲストのままでも問題なく使えます。",
+  "loginWithGoogle": "Googleでログイン",
+  "loginWithApple": "Appleでログイン",
+  "logoutButton": "ログアウト",
+  "loginConnectedHint": "必要になるまで、このままログイン状態を維持できます。",
+  "loginSuccessSnack": "ログインしました",
+  "loginCancelledSnack": "ログインをキャンセルしました",
+  "loginSetupRequiredSnack": "Firebaseの設定後にログインできます",
+  "loginUnsupportedSnack": "この端末ではAppleログインを利用できません",
+  "loginFailedSnack": "ログインに失敗しました。時間をおいて再試行してください。",
+  "logoutSuccessSnack": "ログアウトしました",
+  "loginSampleGoogleName": "Googleユーザー",
+  "loginSampleAppleName": "Appleユーザー",
+  "loginStatusWithProvider": "{name}（{provider} でログイン中）",
+  "@loginStatusWithProvider": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
   "futureBillingPlan": "課金プランは近日公開予定です",
   "insightShort": "気づき",
   "actionShort": "行動",

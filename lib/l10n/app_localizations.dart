@@ -281,7 +281,7 @@ abstract class AppLocalizations {
   /// No description provided for @tutorialAction.
   ///
   /// In en, this message translates to:
-  /// **'Action: Right'**
+  /// **'Right: Action'**
   String get tutorialAction;
 
   /// No description provided for @tutorialStep4.
@@ -305,7 +305,7 @@ abstract class AppLocalizations {
   /// No description provided for @tutorialStep7Title.
   ///
   /// In en, this message translates to:
-  /// **'Your Galaxy In A Week'**
+  /// **'Your Galaxy in a Week'**
   String get tutorialStep7Title;
 
   /// No description provided for @tutorialStep7Body.
@@ -451,6 +451,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Login feature coming soon'**
   String get futureLoginFeature;
+
+  /// No description provided for @guestModeStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Guest mode (no sign-in)'**
+  String get guestModeStatus;
+
+  /// No description provided for @loginOptionalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You can use the app without signing in. Sign in only when you want sync.'**
+  String get loginOptionalDescription;
+
+  /// No description provided for @loginBenefitSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Signing in prepares your account for future sync and device transfer. You can keep using guest mode with no problem.'**
+  String get loginBenefitSummary;
+
+  /// No description provided for @loginWithGoogle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Google'**
+  String get loginWithGoogle;
+
+  /// No description provided for @loginWithApple.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with Apple'**
+  String get loginWithApple;
+
+  /// No description provided for @logoutButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get logoutButton;
+
+  /// No description provided for @loginConnectedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can stay signed in until you need sync features.'**
+  String get loginConnectedHint;
+
+  /// No description provided for @loginSuccessSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in successfully'**
+  String get loginSuccessSnack;
+
+  /// No description provided for @loginCancelledSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in cancelled'**
+  String get loginCancelledSnack;
+
+  /// No description provided for @loginSetupRequiredSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in will be available after Firebase setup'**
+  String get loginSetupRequiredSnack;
+
+  /// No description provided for @loginUnsupportedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple Sign In is not available on this device'**
+  String get loginUnsupportedSnack;
+
+  /// No description provided for @loginFailedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign-in failed. Please try again later.'**
+  String get loginFailedSnack;
+
+  /// No description provided for @logoutSuccessSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Signed out'**
+  String get logoutSuccessSnack;
+
+  /// No description provided for @loginSampleGoogleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Google User'**
+  String get loginSampleGoogleName;
+
+  /// No description provided for @loginSampleAppleName.
+  ///
+  /// In en, this message translates to:
+  /// **'Apple User'**
+  String get loginSampleAppleName;
+
+  /// No description provided for @loginStatusWithProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (signed in with {provider})'**
+  String loginStatusWithProvider(String name, String provider);
 
   /// No description provided for @futureBillingPlan.
   ///
@@ -707,7 +803,7 @@ abstract class AppLocalizations {
   /// No description provided for @noThoughtsInSelectedWeek.
   ///
   /// In en, this message translates to:
-  /// **'No thoughts recorded in this week'**
+  /// **'No thoughts recorded this week'**
   String get noThoughtsInSelectedWeek;
 
   /// No description provided for @weeklyPickerTitle.

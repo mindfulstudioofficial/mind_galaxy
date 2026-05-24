@@ -120,7 +120,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get supportDeveloperTitle => '開発者を支援';
 
   @override
-  String get meteorSupportContent => '広告を見て、12時間流星群を流しますか？';
+  String get meteorSupportContent => '広告を見て、12時間流星群を表示しますか？';
 
   @override
   String get cancel => 'キャンセル';
@@ -184,6 +184,57 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get futureLoginFeature => 'ログインは近日公開予定です';
+
+  @override
+  String get guestModeStatus => 'ゲストモード（ログインなし）';
+
+  @override
+  String get loginOptionalDescription => 'ログインなしで利用できます。同期したいときだけログインしてください。';
+
+  @override
+  String get loginBenefitSummary =>
+      'ログインすると、将来の端末同期・引き継ぎに備えられます。今はゲストのままでも問題なく使えます。';
+
+  @override
+  String get loginWithGoogle => 'Googleでログイン';
+
+  @override
+  String get loginWithApple => 'Appleでログイン';
+
+  @override
+  String get logoutButton => 'ログアウト';
+
+  @override
+  String get loginConnectedHint => '必要になるまで、このままログイン状態を維持できます。';
+
+  @override
+  String get loginSuccessSnack => 'ログインしました';
+
+  @override
+  String get loginCancelledSnack => 'ログインをキャンセルしました';
+
+  @override
+  String get loginSetupRequiredSnack => 'Firebaseの設定後にログインできます';
+
+  @override
+  String get loginUnsupportedSnack => 'この端末ではAppleログインを利用できません';
+
+  @override
+  String get loginFailedSnack => 'ログインに失敗しました。時間をおいて再試行してください。';
+
+  @override
+  String get logoutSuccessSnack => 'ログアウトしました';
+
+  @override
+  String get loginSampleGoogleName => 'Googleユーザー';
+
+  @override
+  String get loginSampleAppleName => 'Appleユーザー';
+
+  @override
+  String loginStatusWithProvider(String name, String provider) {
+    return '$name（$provider でログイン中）';
+  }
 
   @override
   String get futureBillingPlan => '課金プランは近日公開予定です';

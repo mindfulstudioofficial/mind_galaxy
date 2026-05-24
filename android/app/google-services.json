@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "787958222458",
+    "project_id": "mind-galaxy-d5589",
+    "storage_bucket": "mind-galaxy-d5589.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787958222458:android:a27487046fb4cdb35d35c3",
+        "android_client_info": {
+          "package_name": "studio.mindful.mindgalaxy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "787958222458-lhvij4su88cv6u09ig88bnb7spqivia9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "studio.mindful.mindgalaxy",
+            "certificate_hash": "dedbef7ed9535b77ddc9955c477049be6d96b46d"
+          }
+        },
+        {
+          "client_id": "787958222458-lch11ra3g32v5okoghdbn7pktosun7n2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAEpYP6mG2DrFqNqaMasnPXvIbrRQmFTI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "787958222458-lch11ra3g32v5okoghdbn7pktosun7n2.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "787958222458-04clriffqts7kgqii5re1tbm6q0sknhf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "studio.mindful.mindgalaxy",
+                "app_store_id": "6767967465"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

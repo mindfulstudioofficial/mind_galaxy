@@ -4,6 +4,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/thought.dart';
 import 'screens/home_screen.dart';
+import 'services/auth_service.dart';
 import 'services/app_settings.dart';
 import 'package:mindgalaxy/l10n/app_localizations.dart';
 import 'utils/admob_test_device_debug.dart';
@@ -52,6 +53,7 @@ void main() async {
   await Hive.openBox<Thought>('thoughts');
   await Hive.openBox('settings');
   await AppSettings.ensureDefaults();
+  await AuthService.initialize();
   await _runCategoryCanonicalMigrationOnce();
   await _removeLegacyScreenshotSeedThoughtsOnce();
   runApp(const MindGalaxyApp());

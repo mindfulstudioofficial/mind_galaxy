@@ -30,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const String _privacyPolicyUrl =
       'https://docs.google.com/document/d/1o1Y5qaTh8Lx6rJfqkgvrwsdnkDm3OkltABnAD0VeU6M/edit?usp=sharing';
   static const double _tutorialDragVisualYOffset = 50.0;
+  static const double _tutorialStarSpawnRightOffset = 64.0;
+  static const double _tutorialStarSpawnVerticalOffset = -8.0;
   static const int _maxVisibleThoughts = 30;
   static const double _observationSpacing = 140.0;
   static const int _meteorMinActive = 1;
@@ -69,17 +71,36 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isRewardAdShowing = false;
   int _dailyReflectionCount = 0;
 
+  void _resetTutorialStarPosition([Size? size]) {
+    final viewport = size ?? MediaQuery.of(context).size;
+    final centerX = viewport.width * 0.5;
+    final centerY = viewport.height * 0.5;
+    final spawnX = (centerX + _tutorialStarSpawnRightOffset)
+        .clamp(centerX + 28.0, viewport.width - 64.0)
+        .toDouble();
+    final spawnY = (centerY + _tutorialStarSpawnVerticalOffset)
+        .clamp(viewport.height * 0.36, centerY + 28.0)
+        .toDouble();
+    _tutorialStar = Offset(spawnX, spawnY);
+  }
+
   @override
   void initState() {
     super.initState();
 
     final box = Hive.box<Thought>('thoughts');
     final settingsBox = Hive.box('settings');
-    final isTutorialDone = settingsBox.get('tutorialDone', defaultValue: false);
-    if (isTutorialDone) {
-      _tutorialStep = _tutorialInteractiveStep; // 完了済みのステップへ飛ばす
-    }
     final allThoughts = _loadThoughtsFromBox(box);
+    final isTutorialDone = settingsBox.get('tutorialDone', defaultValue: false);
+    // If tutorial flag is restored but no thought data exists, show tutorial again.
+    if (isTutorialDone && allThoughts.isNotEmpty) {
+      _tutorialStep = _tutorialInteractiveStep; // 完了済みのステップへ飛ばす
+    } else {
+      _tutorialStep = 0;
+      if (isTutorialDone) {
+        unawaited(settingsBox.put('tutorialDone', false));
+      }
+    }
     _observationThoughts
       ..clear()
       ..addAll(allThoughts..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
@@ -111,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       }
-      _tutorialStar = Offset(size.width * 0.7, size.height / 2);
+      _resetTutorialStarPosition(size);
       setState(() {});
     });
   }
@@ -146,10 +167,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _clampThoughtsToViewport(Size size) async {
     const margin = 40.0;
+    final minX = margin;
+    final maxX = max(margin, size.width - margin);
+    final minY = margin;
+    final maxY = max(margin, size.height - margin);
     var changed = false;
     for (final t in _thoughts) {
-      final nx = t.dx.clamp(margin, size.width - margin);
-      final ny = t.dy.clamp(margin, size.height - margin);
+      final nx = t.dx.clamp(minX, maxX);
+      final ny = t.dy.clamp(minY, maxY);
       if (nx != t.dx || ny != t.dy) {
         t.dx = nx;
         t.dy = ny;
@@ -557,8 +582,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final tutorialControlButtonSize =
         tutorialControlCompactLayout ? 50.0 : 56.0;
     final tutorialStep3TextAlignment = tutorialCompactLayout
-        ? const Alignment(0, -0.72)
-        : const Alignment(0, -0.48);
+        ? const Alignment(0, -0.58)
+        : const Alignment(0, -0.4);
     final tutorialDragHintsTop =
         tutorialCompactLayout ? size.height * 0.27 : 120.0;
     const tutorialSpotlightSize = 86.0;
@@ -605,6 +630,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       if (val.isEmpty) return;
                       HapticFeedback.lightImpact();
                       setState(() {
+                        _resetTutorialStarPosition();
                         _tutorialStarColor = Colors.white;
                         _tutorialStep = 2;
                       });
@@ -701,11 +727,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: _buildTutorialText(loc.tutorialStep5)),
           if (_tutorialStep >= 3)
             Positioned(
-              left: _tutorialStar.dx - 20,
+              left: _tutorialStar.dx - 48,
               top: _tutorialStar.dy -
-                  20 -
+                  48 -
                   (_isDragging ? _tutorialDragVisualYOffset : 0),
               child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
                 onPanStart: (details) {
                   setState(() {
                     _isDragging = true;
@@ -749,10 +776,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
                   setState(() => _tutorialStep = 6);
                 },
-                child: AnimatedScale(
-                  scale: _isDragging ? 1.5 : 1.0,
-                  duration: const Duration(milliseconds: 150),
-                  child: Icon(Icons.star, color: _tutorialStarColor, size: 40),
+                child: SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: _isDragging ? 1.5 : 1.0,
+                      duration: const Duration(milliseconds: 150),
+                      child:
+                          Icon(Icons.star, color: _tutorialStarColor, size: 40),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -959,7 +993,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     Text(
-                                      loc.starsCount(220),
+                                      loc.starsCount(100),
                                       style: TextStyle(
                                         color: Colors.white
                                             .withValues(alpha: 0.34),
@@ -984,7 +1018,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     Text(
-                                      loc.starsCount(220),
+                                      loc.starsCount(100),
                                       style: TextStyle(
                                         color: Colors.white
                                             .withValues(alpha: 0.34),
@@ -1009,7 +1043,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     Text(
-                                      loc.starsCount(220),
+                                      loc.starsCount(100),
                                       style: TextStyle(
                                         color: Colors.white
                                             .withValues(alpha: 0.34),
@@ -1034,7 +1068,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     Text(
-                                      loc.starsCount(220),
+                                      loc.starsCount(100),
                                       style: TextStyle(
                                         color: Colors.white
                                             .withValues(alpha: 0.34),
@@ -1059,7 +1093,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       ),
                                     ),
                                     Text(
-                                      loc.starsCount(220),
+                                      loc.starsCount(100),
                                       style: TextStyle(
                                         color: Colors.white
                                             .withValues(alpha: 0.34),
@@ -1085,14 +1119,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             Expanded(
                               child: _buildTutorialWeeklyMetricCard(
                                 title: loc.weeklyInsightsLabel,
-                                value: loc.starsCount(1100),
+                                value: loc.starsCount(100),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: _buildTutorialWeeklyMetricCard(
                                 title: loc.weeklyActionsLabel,
-                                value: loc.starsCount(1100),
+                                value: loc.starsCount(100),
                               ),
                             ),
                           ],

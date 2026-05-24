@@ -105,7 +105,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorialEmotion => 'Left: Emotion';
 
   @override
-  String get tutorialAction => 'Action: Right';
+  String get tutorialAction => 'Right: Action';
 
   @override
   String get tutorialStep4 => 'With insight and action,\nyour star grows';
@@ -118,7 +118,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'From now on, tap the +\nin the bottom-right to add thoughts';
 
   @override
-  String get tutorialStep7Title => 'Your Galaxy In A Week';
+  String get tutorialStep7Title => 'Your Galaxy in a Week';
 
   @override
   String get tutorialStep7Body =>
@@ -194,6 +194,61 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get futureLoginFeature => 'Login feature coming soon';
+
+  @override
+  String get guestModeStatus => 'Guest mode (no sign-in)';
+
+  @override
+  String get loginOptionalDescription =>
+      'You can use the app without signing in. Sign in only when you want sync.';
+
+  @override
+  String get loginBenefitSummary =>
+      'Signing in prepares your account for future sync and device transfer. You can keep using guest mode with no problem.';
+
+  @override
+  String get loginWithGoogle => 'Sign in with Google';
+
+  @override
+  String get loginWithApple => 'Sign in with Apple';
+
+  @override
+  String get logoutButton => 'Log out';
+
+  @override
+  String get loginConnectedHint =>
+      'You can stay signed in until you need sync features.';
+
+  @override
+  String get loginSuccessSnack => 'Signed in successfully';
+
+  @override
+  String get loginCancelledSnack => 'Sign-in cancelled';
+
+  @override
+  String get loginSetupRequiredSnack =>
+      'Sign-in will be available after Firebase setup';
+
+  @override
+  String get loginUnsupportedSnack =>
+      'Apple Sign In is not available on this device';
+
+  @override
+  String get loginFailedSnack => 'Sign-in failed. Please try again later.';
+
+  @override
+  String get logoutSuccessSnack => 'Signed out';
+
+  @override
+  String get loginSampleGoogleName => 'Google User';
+
+  @override
+  String get loginSampleAppleName => 'Apple User';
+
+  @override
+  String loginStatusWithProvider(String name, String provider) {
+    return '$name (signed in with $provider)';
+  }
 
   @override
   String get futureBillingPlan => 'Billing plans coming soon';
@@ -334,7 +389,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weeklyBackToCurrentWeek => 'Back to current week';
 
   @override
-  String get noThoughtsInSelectedWeek => 'No thoughts recorded in this week';
+  String get noThoughtsInSelectedWeek => 'No thoughts recorded this week';
 
   @override
   String get weeklyPickerTitle => 'Select week to view';

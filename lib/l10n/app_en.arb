@@ -30,11 +30,11 @@
   "tutorialFuture": "Up: Future",
   "tutorialPast": "Down: Past",
   "tutorialEmotion": "Left: Emotion",
-  "tutorialAction": "Action: Right",
+  "tutorialAction": "Right: Action",
   "tutorialStep4": "With insight and action,\nyour star grows",
   "tutorialStep5": "This is your universe",
   "tutorialStep6": "From now on, tap the +\nin the bottom-right to add thoughts",
-  "tutorialStep7Title": "Your Galaxy In A Week",
+  "tutorialStep7Title": "Your Galaxy in a Week",
   "tutorialStep7Body": "As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.",
   "supportDeveloperTitle": "Support Developer",
   "meteorSupportContent": "Watch an ad to unlock a 12-hour meteor shower?",
@@ -59,6 +59,32 @@
   "categoryUncategorized": "Uncategorized",
   "meteorRewardAd": "Meteor Shower Reward Ad",
   "futureLoginFeature": "Login feature coming soon",
+  "guestModeStatus": "Guest mode (no sign-in)",
+  "loginOptionalDescription": "You can use the app without signing in. Sign in only when you want sync.",
+  "loginBenefitSummary": "Signing in prepares your account for future sync and device transfer. You can keep using guest mode with no problem.",
+  "loginWithGoogle": "Sign in with Google",
+  "loginWithApple": "Sign in with Apple",
+  "logoutButton": "Log out",
+  "loginConnectedHint": "You can stay signed in until you need sync features.",
+  "loginSuccessSnack": "Signed in successfully",
+  "loginCancelledSnack": "Sign-in cancelled",
+  "loginSetupRequiredSnack": "Sign-in will be available after Firebase setup",
+  "loginUnsupportedSnack": "Apple Sign In is not available on this device",
+  "loginFailedSnack": "Sign-in failed. Please try again later.",
+  "logoutSuccessSnack": "Signed out",
+  "loginSampleGoogleName": "Google User",
+  "loginSampleAppleName": "Apple User",
+  "loginStatusWithProvider": "{name} (signed in with {provider})",
+  "@loginStatusWithProvider": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
   "futureBillingPlan": "Billing plans coming soon",
   "insightShort": "Insight",
   "actionShort": "Action",
@@ -131,7 +157,7 @@
   "weeklyPreviousWeekTooltip": "Show previous week",
   "weeklyNextWeekTooltip": "Show next week",
   "weeklyBackToCurrentWeek": "Back to current week",
-  "noThoughtsInSelectedWeek": "No thoughts recorded in this week",
+  "noThoughtsInSelectedWeek": "No thoughts recorded this week",
   "weeklyPickerTitle": "Select week to view",
   "weeklyPickerApply": "Apply",
   "weeklyPickerYearLabel": "Year",
