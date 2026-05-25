@@ -182,7 +182,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: _authBusy ? null : () => _signIn('google'),
-                      icon: const Icon(Icons.account_circle_outlined),
+                      icon: Container(
+                        width: 20,
+                        height: 20,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text(
+                          'G',
+                          style: TextStyle(
+                            color: Color(0xFF4285F4),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
                       label: Text(loc.loginWithGoogle),
                     ),
                   ),

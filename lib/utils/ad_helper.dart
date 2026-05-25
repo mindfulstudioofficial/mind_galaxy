@@ -8,7 +8,7 @@ class AdHelper {
 
   /// AndroidManifest / Info.plist の APPLICATION_ID と一致させること。
   static const String sampleApplicationId =
-      'ca-app-pub-3940256099942544~3347511713';
+      'ca-app-pub-8944199388403475~6539577557';
 
   static const String _androidBannerProduction =
       'ca-app-pub-8944199388403475/2951686334';

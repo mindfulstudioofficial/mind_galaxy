@@ -92,15 +92,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final settingsBox = Hive.box('settings');
     final allThoughts = _loadThoughtsFromBox(box);
     final isTutorialDone = settingsBox.get('tutorialDone', defaultValue: false);
-    // If tutorial flag is restored but no thought data exists, show tutorial again.
-    if (isTutorialDone && allThoughts.isNotEmpty) {
-      _tutorialStep = _tutorialInteractiveStep; // 完了済みのステップへ飛ばす
-    } else {
-      _tutorialStep = 0;
-      if (isTutorialDone) {
-        unawaited(settingsBox.put('tutorialDone', false));
-      }
-    }
+    _tutorialStep = isTutorialDone ? _tutorialInteractiveStep : 0;
     _observationThoughts
       ..clear()
       ..addAll(allThoughts..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
@@ -1586,10 +1578,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   loc.settingsTitle,
                   style:
                       const TextStyle(color: Colors.white, letterSpacing: 1.1),
-                ),
-                subtitle: Text(
-                  loc.preparing,
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.58)),
                 ),
                 onTap: () {
                   Navigator.pop(context);
