@@ -1,8 +1,14 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'package:mindgalaxy/l10n/app_localizations.dart';
+import 'package:mindgalaxy/models/thought.dart';
 import 'package:mindgalaxy/services/auth_service.dart';
 import 'package:mindgalaxy/services/app_settings.dart';
+import 'package:mindgalaxy/services/backup_service.dart';
+import 'package:mindgalaxy/utils/responsive_layout.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -77,6 +83,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  bool _backupBusy = false;
+
+  Future<void> _exportData() async {
+    final loc = AppLocalizations.of(context)!;
+    if (_backupBusy) return;
+
+    final box = Hive.box<Thought>('thoughts');
+    if (box.isEmpty) {
+      _showSnack(loc.exportEmptySnack);
+      return;
+    }
+
+    setState(() => _backupBusy = true);
+    try {
+      await BackupService.shareBackupFile();
+      if (!mounted) return;
+      _showSnack(loc.exportSuccessSnack);
+    } catch (e) {
+      debugPrint('[Settings] Export failed: $e');
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  Future<void> _importData() async {
+    final loc = AppLocalizations.of(context)!;
+    if (_backupBusy) return;
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: false,
+      withReadStream: false,
+    );
+    if (result == null || result.files.isEmpty) {
+      if (mounted) _showSnack(loc.importCancelledSnack);
+      return;
+    }
+
+    final filePath = result.files.single.path;
+    if (filePath == null) {
+      if (mounted) _showSnack(loc.importCancelledSnack);
+      return;
+    }
+
+    final jsonString = await File(filePath).readAsString();
+
+    final List<Thought> parsed;
+    try {
+      parsed = BackupService.parseAndValidate(jsonString);
+    } on FormatException catch (e) {
+      if (mounted) _showSnack(loc.importFailedSnack(e.message));
+      return;
+    }
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0E1320),
+        title: Text(loc.importConfirmTitle),
+        content: Text(
+          '${loc.importConfirmMessage}\n\n'
+          '${loc.starsCount(parsed.length)}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(loc.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(loc.importConfirmButton),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _backupBusy = true);
+    try {
+      final count = await BackupService.importAndReplace(jsonString);
+      if (!mounted) return;
+      _showSnack(loc.importSuccessSnack(count));
+    } on FormatException catch (e) {
+      if (mounted) _showSnack(loc.importFailedSnack(e.message));
+    } catch (e) {
+      debugPrint('[Settings] Import failed: $e');
+      if (mounted) _showSnack(loc.importFailedSnack(e.toString()));
+    } finally {
+      if (mounted) setState(() => _backupBusy = false);
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   String _providerLabel(AppLocalizations loc) {
     switch (_authProvider) {
       case 'google':
@@ -111,45 +221,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-      body: ListView(
+      body: ResponsiveContentWidth(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
+        child: ListView(
+        padding: EdgeInsets.zero,
         children: [
           ListTile(
             leading: Icon(
-              isLoggedIn ? Icons.verified_user : Icons.cloud_sync,
-              color: textColor.withValues(alpha: isLoggedIn ? 0.8 : 0.65),
+              Icons.folder_open,
+              color: textColor.withValues(alpha: 0.7),
             ),
             title: Text(
-              loc.accountSyncTitle,
+              loc.dataManagementTitle,
               style: TextStyle(
                 color: textColor.withValues(alpha: 0.85),
                 letterSpacing: 1.1,
               ),
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              loc.dataManagementIntro,
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.62),
+                height: 1.4,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          ListTile(
+            enabled: !_backupBusy,
+            leading: Icon(
+              Icons.upload_file,
+              color: textColor.withValues(alpha: 0.65),
+            ),
+            title: Text(
+              loc.exportDataTitle,
+              style: TextStyle(color: textColor.withValues(alpha: 0.82)),
+            ),
+            subtitle: Text(
+              loc.exportDataSubtitle,
+              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
+            ),
+            onTap: _exportData,
+          ),
+          ListTile(
+            enabled: !_backupBusy,
+            leading: Icon(
+              Icons.download,
+              color: textColor.withValues(alpha: 0.65),
+            ),
+            title: Text(
+              loc.importDataTitle,
+              style: TextStyle(color: textColor.withValues(alpha: 0.82)),
+            ),
+            subtitle: Text(
+              loc.importDataSubtitle,
+              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
+            ),
+            onTap: _importData,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              loc.importWarningNote,
+              style: TextStyle(
+                color: Colors.orange.withValues(alpha: 0.6),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Divider(color: Colors.white.withValues(alpha: 0.08)),
+          ListTile(
+            leading: Icon(
+              isLoggedIn ? Icons.verified_user : Icons.cloud_sync,
+              color: textColor.withValues(alpha: isLoggedIn ? 0.8 : 0.55),
+            ),
+            title: Text(
+              loc.accountSyncTitle,
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.75),
+                letterSpacing: 1.1,
+              ),
+            ),
             subtitle: Text(
               accountSubtitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.68)),
+              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
             ),
           ),
           if (!isLoggedIn) ...[
-            const SizedBox(height: 4),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 loc.loginOptionalDescription,
-                style: TextStyle(color: textColor.withValues(alpha: 0.56)),
+                style: TextStyle(color: textColor.withValues(alpha: 0.48)),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.03),
+                  color: Colors.white.withValues(alpha: 0.02),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: Colors.white.withValues(alpha: 0.08),
                   ),
                 ),
                 child: Row(
@@ -158,15 +337,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Icon(
                       Icons.info_outline,
                       size: 18,
-                      color: textColor.withValues(alpha: 0.62),
+                      color: textColor.withValues(alpha: 0.5),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         loc.loginBenefitSummary,
                         style: TextStyle(
-                          color: textColor.withValues(alpha: 0.66),
+                          color: textColor.withValues(alpha: 0.52),
                           height: 1.35,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -229,10 +409,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 loc.loginConnectedHint,
-                style: TextStyle(color: textColor.withValues(alpha: 0.5)),
+                style: TextStyle(color: textColor.withValues(alpha: 0.45)),
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Divider(color: Colors.white.withValues(alpha: 0.08)),
           ListTile(
             enabled: false,
             leading: Icon(
@@ -261,6 +443,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

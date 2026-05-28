@@ -165,5 +165,34 @@
   "weeklyPickerWeekLabel": "Week",
   "weeklyPickerYearSuffix": "",
   "weeklyPickerMonthSuffix": "",
-  "weeklyPickerWeekSuffix": "W"
+  "weeklyPickerWeekSuffix": "W",
+  "dataManagementTitle": "Data Management",
+  "dataManagementIntro": "Use export/import below to back up or move your data to another device. No sign-in required.",
+  "exportDataTitle": "Export Data",
+  "exportDataSubtitle": "Save all thoughts as a backup file",
+  "importDataTitle": "Import Data (Full Replace)",
+  "importDataSubtitle": "Replace all local data with a backup file",
+  "importConfirmTitle": "Replace all data?",
+  "importConfirmMessage": "This will delete all current thoughts and replace them with the backup file. This cannot be undone.",
+  "importConfirmButton": "Replace All",
+  "exportSuccessSnack": "Backup file is ready to share",
+  "exportEmptySnack": "No thoughts to export",
+  "importSuccessSnack": "Imported {count} thoughts successfully",
+  "@importSuccessSnack": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailedSnack": "Import failed: {reason}",
+  "@importFailedSnack": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "importCancelledSnack": "Import cancelled",
+  "importWarningNote": "Warning: Importing will permanently replace all existing data."
 }

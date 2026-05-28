@@ -395,4 +395,55 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get weeklyPickerWeekSuffix => '週';
+
+  @override
+  String get dataManagementTitle => 'データ管理';
+
+  @override
+  String get dataManagementIntro =>
+      '機種変更やバックアップは、下のエクスポート／インポートで行えます。ログインは不要です。';
+
+  @override
+  String get exportDataTitle => 'データをエクスポート';
+
+  @override
+  String get exportDataSubtitle => 'すべての思考をバックアップファイルとして保存';
+
+  @override
+  String get importDataTitle => 'データをインポート（全置換）';
+
+  @override
+  String get importDataSubtitle => 'バックアップファイルで端末内データを置き換え';
+
+  @override
+  String get importConfirmTitle => 'すべてのデータを置き換えますか？';
+
+  @override
+  String get importConfirmMessage =>
+      '現在の思考データはすべて削除され、バックアップファイルの内容に置き換わります。この操作は元に戻せません。';
+
+  @override
+  String get importConfirmButton => 'すべて置換';
+
+  @override
+  String get exportSuccessSnack => 'バックアップファイルの共有準備ができました';
+
+  @override
+  String get exportEmptySnack => 'エクスポートする思考がありません';
+
+  @override
+  String importSuccessSnack(int count) {
+    return '$count件の思考をインポートしました';
+  }
+
+  @override
+  String importFailedSnack(String reason) {
+    return 'インポート失敗: $reason';
+  }
+
+  @override
+  String get importCancelledSnack => 'インポートをキャンセルしました';
+
+  @override
+  String get importWarningNote => '注意: インポートすると既存のデータはすべて上書きされます。';
 }

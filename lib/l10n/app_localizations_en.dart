@@ -414,4 +414,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weeklyPickerWeekSuffix => 'W';
+
+  @override
+  String get dataManagementTitle => 'Data Management';
+
+  @override
+  String get dataManagementIntro =>
+      'Use export/import below to back up or move your data to another device. No sign-in required.';
+
+  @override
+  String get exportDataTitle => 'Export Data';
+
+  @override
+  String get exportDataSubtitle => 'Save all thoughts as a backup file';
+
+  @override
+  String get importDataTitle => 'Import Data (Full Replace)';
+
+  @override
+  String get importDataSubtitle => 'Replace all local data with a backup file';
+
+  @override
+  String get importConfirmTitle => 'Replace all data?';
+
+  @override
+  String get importConfirmMessage =>
+      'This will delete all current thoughts and replace them with the backup file. This cannot be undone.';
+
+  @override
+  String get importConfirmButton => 'Replace All';
+
+  @override
+  String get exportSuccessSnack => 'Backup file is ready to share';
+
+  @override
+  String get exportEmptySnack => 'No thoughts to export';
+
+  @override
+  String importSuccessSnack(int count) {
+    return 'Imported $count thoughts successfully';
+  }
+
+  @override
+  String importFailedSnack(String reason) {
+    return 'Import failed: $reason';
+  }
+
+  @override
+  String get importCancelledSnack => 'Import cancelled';
+
+  @override
+  String get importWarningNote =>
+      'Warning: Importing will permanently replace all existing data.';
 }

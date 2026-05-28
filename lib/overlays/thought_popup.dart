@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:mindgalaxy/l10n/app_localizations.dart';
 import '../models/thought.dart';
 import '../utils/colors.dart';
+import '../utils/responsive_layout.dart';
 
 class ThoughtPopup {
   static OverlayEntry? _overlayEntry;
@@ -180,8 +181,12 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
     final loc = AppLocalizations.of(context)!;
     const panelRadius = BorderRadius.all(Radius.circular(28));
 
+    final panelWidth = context.isTabletLayout
+        ? context.modalMaxWidth.clamp(400.0, kMaxModalWidth)
+        : (size.width * 0.9).clamp(300.0, 460.0);
+
     return SizedBox(
-      width: (size.width * 0.9).clamp(300.0, 460.0),
+      width: panelWidth,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -431,7 +436,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                     if (raw < 0.02)
                       Positioned(
                         right: 16,
-                        top: 10,
+                        top: context.layoutViewPadding.top + 8,
                         child: _PopupIconButton(
                           enabled: true,
                           icon: Icons.close,
@@ -481,7 +486,8 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
 
         return Material(
           color: Colors.black.withValues(alpha: scrimOpacity.clamp(0.0, 0.55)),
-          child: Stack(
+          child: SafeArea(
+            child: Stack(
             alignment: Alignment.center,
             children: [
               Positioned.fill(
@@ -513,6 +519,7 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                 ),
               ),
             ],
+          ),
           ),
         );
       },

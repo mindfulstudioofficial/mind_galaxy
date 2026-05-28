@@ -853,6 +853,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'W'**
   String get weeklyPickerWeekSuffix;
+
+  /// No description provided for @dataManagementTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Data Management'**
+  String get dataManagementTitle;
+
+  /// No description provided for @dataManagementIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Use export/import below to back up or move your data to another device. No sign-in required.'**
+  String get dataManagementIntro;
+
+  /// No description provided for @exportDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export Data'**
+  String get exportDataTitle;
+
+  /// No description provided for @exportDataSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save all thoughts as a backup file'**
+  String get exportDataSubtitle;
+
+  /// No description provided for @importDataTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Data (Full Replace)'**
+  String get importDataTitle;
+
+  /// No description provided for @importDataSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace all local data with a backup file'**
+  String get importDataSubtitle;
+
+  /// No description provided for @importConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace all data?'**
+  String get importConfirmTitle;
+
+  /// No description provided for @importConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete all current thoughts and replace them with the backup file. This cannot be undone.'**
+  String get importConfirmMessage;
+
+  /// No description provided for @importConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace All'**
+  String get importConfirmButton;
+
+  /// No description provided for @exportSuccessSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup file is ready to share'**
+  String get exportSuccessSnack;
+
+  /// No description provided for @exportEmptySnack.
+  ///
+  /// In en, this message translates to:
+  /// **'No thoughts to export'**
+  String get exportEmptySnack;
+
+  /// No description provided for @importSuccessSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {count} thoughts successfully'**
+  String importSuccessSnack(int count);
+
+  /// No description provided for @importFailedSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Import failed: {reason}'**
+  String importFailedSnack(String reason);
+
+  /// No description provided for @importCancelledSnack.
+  ///
+  /// In en, this message translates to:
+  /// **'Import cancelled'**
+  String get importCancelledSnack;
+
+  /// No description provided for @importWarningNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Warning: Importing will permanently replace all existing data.'**
+  String get importWarningNote;
 }
 
 class _AppLocalizationsDelegate

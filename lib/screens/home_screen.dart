@@ -14,6 +14,7 @@ import '../overlays/thought_popup.dart';
 import '../config/ads_config.dart';
 import '../services/app_settings.dart';
 import '../utils/ad_helper.dart';
+import '../utils/responsive_layout.dart';
 import 'input_screen.dart';
 import 'settings_screen.dart';
 import 'weekly_galaxy_screen.dart';
@@ -73,14 +74,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _resetTutorialStarPosition([Size? size]) {
     final viewport = size ?? MediaQuery.of(context).size;
+    if (viewport.width <= 0 || viewport.height <= 0) {
+      _tutorialStar = Offset.zero;
+      return;
+    }
     final centerX = viewport.width * 0.5;
     final centerY = viewport.height * 0.5;
-    final spawnX = (centerX + _tutorialStarSpawnRightOffset)
-        .clamp(centerX + 28.0, viewport.width - 64.0)
-        .toDouble();
-    final spawnY = (centerY + _tutorialStarSpawnVerticalOffset)
-        .clamp(viewport.height * 0.36, centerY + 28.0)
-        .toDouble();
+    final minX = centerX + 28.0;
+    final maxX = viewport.width - 64.0;
+    final spawnX = maxX < minX
+        ? centerX
+        : (centerX + _tutorialStarSpawnRightOffset).clamp(minX, maxX).toDouble();
+
+    final minY = viewport.height * 0.36;
+    final maxY = centerY + 28.0;
+    final spawnY = maxY < minY
+        ? centerY
+        : (centerY + _tutorialStarSpawnVerticalOffset).clamp(minY, maxY).toDouble();
     _tutorialStar = Offset(spawnX, spawnY);
   }
 
@@ -159,9 +169,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _clampThoughtsToViewport(Size size) async {
     const margin = 40.0;
-    final minX = margin;
+    const minX = margin;
     final maxX = max(margin, size.width - margin);
-    final minY = margin;
+    const minY = margin;
     final maxY = max(margin, size.height - margin);
     var changed = false;
     for (final t in _thoughts) {
@@ -170,7 +180,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (nx != t.dx || ny != t.dy) {
         t.dx = nx;
         t.dy = ny;
-        await t.save();
+        if (t.isInBox) {
+          await t.save();
+        }
         changed = true;
       }
     }
@@ -567,8 +579,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // Shorter phones (e.g. iPhone 8 Plus ~736pt): step-3 caption, quadrant hints, and
     // wrapped English lines share the vertical band—keep caption high and hints lower;
     // avoid lifting "Up: Future" into the caption (was translate -12).
-    final tutorialCompactLayout = size.height <= 760;
-    final tutorialControlCompactLayout = size.height <= 740;
+    final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
+    final tutorialCompactLayout = isPhoneLayout && size.height <= 760;
+    final tutorialControlCompactLayout = isPhoneLayout && size.height <= 740;
     final tutorialBottomControlOffset =
         viewPadding.bottom + (tutorialControlCompactLayout ? 10.0 : 16.0);
     final tutorialControlButtonSize =
@@ -576,8 +589,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final tutorialStep3TextAlignment = tutorialCompactLayout
         ? const Alignment(0, -0.58)
         : const Alignment(0, -0.4);
-    final tutorialDragHintsTop =
-        tutorialCompactLayout ? size.height * 0.27 : 120.0;
+    final tutorialDragHintsTop = tutorialCompactLayout
+        ? size.height * 0.27
+        : (isPhoneLayout ? 120.0 : size.height * 0.22);
     const tutorialSpotlightSize = 86.0;
     final tutorialSpotlightPadding =
         (tutorialSpotlightSize - tutorialControlButtonSize) / 2;
@@ -2109,13 +2123,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     final size = MediaQuery.of(context).size;
     final viewPadding = MediaQuery.of(context).viewPadding;
-    final isCompactHeight = size.height <= 740;
+    final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
+    final isCompactHeight = isPhoneLayout && size.height <= 740;
     final topControlOffset = viewPadding.top + (isCompactHeight ? 8 : 12);
     final bottomControlOffset =
         viewPadding.bottom + (isCompactHeight ? 10 : 16);
     final controlButtonSize = isCompactHeight ? 50.0 : 56.0;
     final controlIconSize = isCompactHeight ? 21.0 : 24.0;
-    _deleteHolePosition = Offset(size.width - 80, 80); // 右上（ブラックホール削除）
+    _deleteHolePosition = Offset(
+      size.width - 80,
+      viewPadding.top + 56,
+    ); // 右上（ブラックホール削除）
     _revisitCenterPosition = Offset(size.width / 2, size.height / 2); // 中央（再訪）
 
     return Scaffold(
@@ -2239,7 +2257,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           _tutorialStarColor = _getCategoryColor(newCategory);
                         }
                       });
-                      // 2. Hive 管理オブジェクトのみ永続化する（デモデータはメモリ上のみ）
                       if (thought.isInBox) {
                         await thought.save();
                         // 3. 念のため全体保存も走らせる
@@ -2418,7 +2435,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 🚀 すべての思考星の状態をHiveに上書き保存するメソッド
   void _persistAllThoughts() {
     try {
-      // Hive 管理下の星だけ保存する。デモデータは box 外オブジェクト。
       for (var thought in _thoughts) {
         if (thought.isInBox) {
           thought.save();

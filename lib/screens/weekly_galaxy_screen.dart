@@ -11,6 +11,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/thought.dart';
+import '../utils/responsive_layout.dart';
 import '../utils/web_image_download.dart';
 
 class WeeklyGalaxyScreen extends StatefulWidget {
@@ -178,12 +179,9 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
       );
     }
 
-    final picked = await showModalBottomSheet<_WeekPickerSelection>(
+    final picked = await showAdaptivePanel<_WeekPickerSelection>(
       context: context,
       backgroundColor: const Color(0xFF080E1A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
       builder: (context) => _WeekPickerSheet(
         initialSelection: selection,
         minYear: years.first,
@@ -361,8 +359,18 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
         .round();
   }
 
-  Widget _buildDensityWidget(_WeeklySummary summary, {required bool compact}) {
+  /// iPad 等で「今週の振り返り」カード内のグラフィックを拡大する。
+  double _reportTabletGraphicScale(BuildContext context) {
+    return context.isTabletLayout ? 1.48 : 1.0;
+  }
+
+  Widget _buildDensityWidget(
+    _WeeklySummary summary, {
+    required bool compact,
+    double tabletGraphicScale = 1.0,
+  }) {
     final densityPercent = _weeklyDensityPercent(summary.totalThoughts);
+    final orbSize = (compact ? 74.0 : 102.0) * tabletGraphicScale;
     return Container(
       padding: EdgeInsets.fromLTRB(
         compact ? 6 : 8,
@@ -406,10 +414,11 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 child: Align(
                   alignment: Alignment.center,
                   child: Transform.scale(
-                    scale: compact ? 1.12 : 1.28,
+                    scale: (compact ? 1.12 : 1.28) *
+                        (tabletGraphicScale > 1.0 ? 1.06 : 1.0),
                     child: SizedBox(
-                      height: compact ? 74 : 102,
-                      width: compact ? 74 : 102,
+                      height: orbSize,
+                      width: orbSize,
                       child: _WeeklyDensityOrb(
                         count: summary.totalThoughts,
                         color: _statsEmerald,
@@ -558,7 +567,10 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     required String label,
     required bool particleMode,
     required bool compact,
+    double tabletGraphicScale = 1.0,
   }) {
+    final paintW = (compact ? 108.0 : 132.0) * tabletGraphicScale;
+    final paintH = (compact ? 82.0 : 106.0) * tabletGraphicScale;
     return Container(
       padding: EdgeInsets.fromLTRB(
         compact ? 6 : 8,
@@ -601,7 +613,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                 child: Align(
                   alignment: const Alignment(0, -0.1),
                   child: Transform.scale(
-                    scale: compact ? 1.45 : 1.62,
+                    scale: (compact ? 1.45 : 1.62) *
+                        (tabletGraphicScale > 1.0 ? 1.06 : 1.0),
                     child: CustomPaint(
                       painter: _StatConstellationPainter(
                         count: count,
@@ -609,8 +622,8 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                         particleMode: particleMode,
                       ),
                       child: SizedBox(
-                        width: compact ? 108 : 132,
-                        height: compact ? 82 : 106,
+                        width: paintW,
+                        height: paintH,
                       ),
                     ),
                   ),
@@ -647,6 +660,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
 
   Widget _buildReportArea(_WeeklySummary summary, double height) {
     final compact = height < 220;
+    final tabletGraphicScale = _reportTabletGraphicScale(context);
     final loc = AppLocalizations.of(context)!;
     return Container(
       decoration: BoxDecoration(
@@ -680,7 +694,11 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: _buildDensityWidget(summary, compact: compact),
+                    child: _buildDensityWidget(
+                      summary,
+                      compact: compact,
+                      tabletGraphicScale: tabletGraphicScale,
+                    ),
                   ),
                   SizedBox(width: compact ? 6 : 10),
                   Expanded(
@@ -689,6 +707,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                       label: loc.weeklyInsightsLabel,
                       particleMode: false,
                       compact: compact,
+                      tabletGraphicScale: tabletGraphicScale,
                     ),
                   ),
                   SizedBox(width: compact ? 6 : 10),
@@ -698,6 +717,7 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
                       label: loc.weeklyActionsLabel,
                       particleMode: true,
                       compact: compact,
+                      tabletGraphicScale: tabletGraphicScale,
                     ),
                   ),
                 ],

@@ -165,5 +165,34 @@
   "weeklyPickerWeekLabel": "週",
   "weeklyPickerYearSuffix": "年",
   "weeklyPickerMonthSuffix": "月",
-  "weeklyPickerWeekSuffix": "週"
+  "weeklyPickerWeekSuffix": "週",
+  "dataManagementTitle": "データ管理",
+  "dataManagementIntro": "機種変更やバックアップは、下のエクスポート／インポートで行えます。ログインは不要です。",
+  "exportDataTitle": "データをエクスポート",
+  "exportDataSubtitle": "すべての思考をバックアップファイルとして保存",
+  "importDataTitle": "データをインポート（全置換）",
+  "importDataSubtitle": "バックアップファイルで端末内データを置き換え",
+  "importConfirmTitle": "すべてのデータを置き換えますか？",
+  "importConfirmMessage": "現在の思考データはすべて削除され、バックアップファイルの内容に置き換わります。この操作は元に戻せません。",
+  "importConfirmButton": "すべて置換",
+  "exportSuccessSnack": "バックアップファイルの共有準備ができました",
+  "exportEmptySnack": "エクスポートする思考がありません",
+  "importSuccessSnack": "{count}件の思考をインポートしました",
+  "@importSuccessSnack": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailedSnack": "インポート失敗: {reason}",
+  "@importFailedSnack": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "importCancelledSnack": "インポートをキャンセルしました",
+  "importWarningNote": "注意: インポートすると既存のデータはすべて上書きされます。"
 }
