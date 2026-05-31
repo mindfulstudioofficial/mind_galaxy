@@ -433,19 +433,6 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
                         ),
                       ),
                     ),
-                    if (raw < 0.02)
-                      Positioned(
-                        right: 16,
-                        top: context.layoutViewPadding.top + 8,
-                        child: _PopupIconButton(
-                          enabled: true,
-                          icon: Icons.close,
-                          onTap: () {
-                            FocusScope.of(context).unfocus();
-                            ThoughtPopup.hide();
-                          },
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -523,46 +510,6 @@ class _ThoughtPopupOverlayState extends State<_ThoughtPopupOverlay>
           ),
         );
       },
-    );
-  }
-}
-
-class _PopupIconButton extends StatelessWidget {
-  final VoidCallback onTap;
-  final bool enabled;
-  final IconData icon;
-
-  const _PopupIconButton({
-    required this.onTap,
-    required this.enabled,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(18),
-        child: Ink(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.textPrimary.withValues(alpha: 0.08),
-            border: Border.all(
-              color: AppColors.textPrimary.withValues(alpha: 0.16),
-              width: 1,
-            ),
-          ),
-          child: Icon(
-            icon,
-            color: AppColors.textSecondary.withValues(alpha: 0.95),
-            size: 18,
-          ),
-        ),
-      ),
     );
   }
 }

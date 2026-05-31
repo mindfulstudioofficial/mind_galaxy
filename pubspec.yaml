@@ -1,7 +1,7 @@
 name: mindgalaxy
 description: Flutter Web app with emoji central star and popping thought stars
 publish_to: 'none'
-version: 1.0.3+9
+version: 1.0.4+10
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -28,6 +28,7 @@ dependencies:
   google_mobile_ads: ^4.0.0
   url_launcher: ^6.3.2
   file_picker: ^8.0.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:

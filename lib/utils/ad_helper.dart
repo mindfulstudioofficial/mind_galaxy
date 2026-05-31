@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:mindgalaxy/config/ads_config.dart';
 
 /// AdMob 広告ユニット。
 class AdHelper {
@@ -34,7 +35,7 @@ class AdHelper {
   static const String _iosRewardedProd =
       'ca-app-pub-8944199388403475/4239975982';
 
-  static bool get _useProductionAds => !kDebugMode;
+  static bool get _useProductionAds => !kDebugMode && !kForceTestAds;
 
   /// バナー（[input_screen.dart]）。
   static String get bannerAdUnitId {

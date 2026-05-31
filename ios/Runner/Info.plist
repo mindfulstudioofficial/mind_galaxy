@@ -41,6 +41,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Mind Galaxy saves shared galaxy images to your photo library when you choose to save them.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Mind Galaxy uses your photo library to save shared galaxy images and to select backup files when restoring your data.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

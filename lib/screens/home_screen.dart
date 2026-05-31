@@ -29,7 +29,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const String _supportEmail = 'mindful.studio.official@gmail.com';
   static const String _privacyPolicyUrl =
-      'https://docs.google.com/document/d/1o1Y5qaTh8Lx6rJfqkgvrwsdnkDm3OkltABnAD0VeU6M/edit?usp=sharing';
+      'https://docs.google.com/document/d/e/2PACX-1vTbrdJ28P5n0d7xxAwNn9fOiTvXUEGbirNim-p8PwwnAIpFJd2y9cV-g6puFW7yPe_YG-eCyweE99Ow/pub';
   static const double _tutorialDragVisualYOffset = 50.0;
   static const double _tutorialStarSpawnRightOffset = 64.0;
   static const double _tutorialStarSpawnVerticalOffset = -8.0;
@@ -84,13 +84,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final maxX = viewport.width - 64.0;
     final spawnX = maxX < minX
         ? centerX
-        : (centerX + _tutorialStarSpawnRightOffset).clamp(minX, maxX).toDouble();
+        : (centerX + _tutorialStarSpawnRightOffset)
+            .clamp(minX, maxX)
+            .toDouble();
 
     final minY = viewport.height * 0.36;
     final maxY = centerY + 28.0;
     final spawnY = maxY < minY
         ? centerY
-        : (centerY + _tutorialStarSpawnVerticalOffset).clamp(minY, maxY).toDouble();
+        : (centerY + _tutorialStarSpawnVerticalOffset)
+            .clamp(minY, maxY)
+            .toDouble();
     _tutorialStar = Offset(spawnX, spawnY);
   }
 
@@ -168,15 +172,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _clampThoughtsToViewport(Size size) async {
-    const margin = 40.0;
-    const minX = margin;
-    final maxX = max(margin, size.width - margin);
-    const minY = margin;
-    final maxY = max(margin, size.height - margin);
+    const edgeMargin = 56.0;
+    final viewPadding = MediaQuery.of(context).viewPadding;
+    final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
+    final isCompactHeight = isPhoneLayout && size.height <= 740;
+    final topControlOffset = viewPadding.top + (isCompactHeight ? 8.0 : 12.0);
+    final controlButtonSize = isCompactHeight ? 50.0 : 56.0;
+    final settingsButtonUnsafeRect = Rect.fromLTWH(
+            16, topControlOffset, controlButtonSize, controlButtonSize)
+        .inflate(54);
+
+    final minX = edgeMargin;
+    final maxX = max(edgeMargin, size.width - edgeMargin);
+    final minY = max(edgeMargin, viewPadding.top + 8.0);
+    final maxY = max(edgeMargin, size.height - edgeMargin);
     var changed = false;
     for (final t in _thoughts) {
-      final nx = t.dx.clamp(minX, maxX);
-      final ny = t.dy.clamp(minY, maxY);
+      var nx = t.dx.clamp(minX, maxX).toDouble();
+      var ny = t.dy.clamp(minY, maxY).toDouble();
+
+      // Keep stars draggable by avoiding the menu button's touch area.
+      if (settingsButtonUnsafeRect.contains(Offset(nx, ny))) {
+        ny =
+            (settingsButtonUnsafeRect.bottom + 18).clamp(minY, maxY).toDouble();
+      }
+
       if (nx != t.dx || ny != t.dy) {
         t.dx = nx;
         t.dy = ny;
@@ -1635,17 +1655,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (content.isEmpty) return;
     HapticFeedback.mediumImpact();
     final size = MediaQuery.of(context).size;
-    final center = Offset(size.width / 2, size.height / 2);
-    const spacing = 45.0;
-    const goldenAngleRad = 137.5 * (pi / 180);
-    final nextId = _thoughtIdCounter;
-    final index = max(1, nextId).toDouble();
-    final angle = index * goldenAngleRad;
-    final distance = sqrt(index) * spacing;
-    final pos = Offset(
-      center.dx + cos(angle) * distance,
-      center.dy + sin(angle) * distance,
-    );
+    final pos = _findVisibleSpawnPosition(size);
 
     final newThought = Thought(
       id: _thoughtIdCounter++,
@@ -1671,6 +1681,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     await box.add(newThought);
     if (!mounted) return;
     setState(() => _insertIntoVisibleThoughts(newThought));
+  }
+
+  Offset _findVisibleSpawnPosition(Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const margin = 56.0;
+    final minX = margin;
+    final maxX = max(margin, size.width - margin);
+    final minY = margin;
+    final maxY = max(margin, size.height - margin);
+    const goldenAngleRad = 137.5 * (pi / 180);
+    const minRadius = 44.0;
+    final maxRadius = (min(size.width, size.height) * 0.38).clamp(90.0, 260.0);
+    final seed = max(1, _thoughtIdCounter);
+
+    for (int attempt = 0; attempt < 28; attempt++) {
+      final index = seed + attempt;
+      final angle = index * goldenAngleRad;
+      final ringT = (index % 14) / 13;
+      final distance = minRadius + (maxRadius - minRadius) * ringT;
+      final candidate = Offset(
+        (center.dx + cos(angle) * distance).clamp(minX, maxX).toDouble(),
+        (center.dy + sin(angle) * distance).clamp(minY, maxY).toDouble(),
+      );
+      if (!_isSpawnPointCrowded(candidate)) return candidate;
+    }
+
+    return Offset(
+      center.dx.clamp(minX, maxX).toDouble(),
+      center.dy.clamp(minY, maxY).toDouble(),
+    );
+  }
+
+  bool _isSpawnPointCrowded(Offset candidate) {
+    for (final thought in _thoughts) {
+      if ((Offset(thought.dx, thought.dy) - candidate).distance < 54) {
+        return true;
+      }
+    }
+    return false;
   }
 
   double _observationContentHeight(double viewportHeight) {
@@ -1706,9 +1755,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-  String _formatMonthLabel(DateTime dt) {
+  String _formatObservationDateLabel(DateTime dt) {
+    final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
-    return "${dt.year}.$m";
+    final d = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    return "$y.$m.$d  $hh:$mm";
   }
 
   bool _thoughtContainsObservationKeyword(Thought thought, String keyword) {
@@ -1966,11 +2019,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
 
       if (focusFactor > 0) {
+        final loc = AppLocalizations.of(context)!;
         final thoughtTrim = thought.content.trim();
         final insightRaw =
             _sanitizeObservationSupplement(thought.insight?.trim() ?? "");
         final actionRaw =
             _sanitizeObservationSupplement(thought.action?.trim() ?? "");
+        final dateLabel = _formatObservationDateLabel(thought.createdAt);
         final placeLabelOnLeft = x > (size.width * 0.5);
         final textAlign = placeLabelOnLeft ? TextAlign.right : TextAlign.left;
         final crossAxisAlignment = placeLabelOnLeft
@@ -1996,6 +2051,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const thoughtBlockMaxH = 16.0 * 1.34 * maxObservationTextLines;
 
         final textLines = <Widget>[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              color: const Color(0xFF152138).withValues(
+                alpha: (0.34 + (0.18 * focusFactor)).clamp(0.0, 0.62),
+              ),
+              border: Border.all(
+                color: const Color(0xFF8FB0E8).withValues(
+                  alpha: (0.14 + (0.22 * focusFactor)).clamp(0.0, 0.4),
+                ),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              child: Text(
+                "${loc.createdAtLabel}  $dateLabel",
+                textAlign: textAlign,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white
+                      .withValues(alpha: 0.72 + (0.18 * focusFactor)),
+                  fontSize: 11.2,
+                  height: 1.15,
+                  letterSpacing: 0.28,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (thoughtTrim.isNotEmpty)
             Text(
               thoughtTrim,
@@ -2384,23 +2470,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   onTap: _openFabInput,
                   size: controlButtonSize,
                   iconSize: controlIconSize,
-                ),
-              ),
-
-            if (_isObservationMode &&
-                _currentObservationFocusThought(size) != null)
-              Positioned(
-                left: 14,
-                top: size.height * 0.46,
-                child: Text(
-                  _formatMonthLabel(
-                      _currentObservationFocusThought(size)!.createdAt),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    fontSize: 18,
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.w300,
-                  ),
                 ),
               ),
 
