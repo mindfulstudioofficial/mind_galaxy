@@ -119,7 +119,7 @@ abstract class AppLocalizations {
   /// No description provided for @insightHint.
   ///
   /// In en, this message translates to:
-  /// **'Insights & Learnings (e.g.) Small shifts can change everything.'**
+  /// **'Insights & Takeaways (e.g.) Small shifts can change everything.'**
   String get insightHint;
 
   /// No description provided for @actionHint.
@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @starRevisitTitle.
   ///
   /// In en, this message translates to:
-  /// **'Star Revisit'**
+  /// **'Revisit a Star'**
   String get starRevisitTitle;
 
   /// No description provided for @revisitThoughtLabel.
@@ -227,7 +227,7 @@ abstract class AppLocalizations {
   /// No description provided for @revisitComplete.
   ///
   /// In en, this message translates to:
-  /// **'Revisit complete'**
+  /// **'Revisit completed'**
   String get revisitComplete;
 
   /// No description provided for @tutorialStep0.
@@ -251,7 +251,7 @@ abstract class AppLocalizations {
   /// No description provided for @tutorialStep2.
   ///
   /// In en, this message translates to:
-  /// **'That became a star'**
+  /// **'It became a star'**
   String get tutorialStep2;
 
   /// No description provided for @tutorialStep3.
@@ -311,13 +311,13 @@ abstract class AppLocalizations {
   /// No description provided for @tutorialStep7Body.
   ///
   /// In en, this message translates to:
-  /// **'As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.'**
+  /// **'As you add more stars, Weekly Galaxy helps you review patterns.\nTap to begin.'**
   String get tutorialStep7Body;
 
   /// No description provided for @supportDeveloperTitle.
   ///
   /// In en, this message translates to:
-  /// **'Support Developer'**
+  /// **'Support the Developer'**
   String get supportDeveloperTitle;
 
   /// No description provided for @meteorSupportContent.
@@ -467,7 +467,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginBenefitSummary.
   ///
   /// In en, this message translates to:
-  /// **'Signing in prepares your account for future sync and device transfer. You can keep using guest mode with no problem.'**
+  /// **'Signing in prepares your account for future sync and device transfer. You can keep using guest mode without any issues.'**
   String get loginBenefitSummary;
 
   /// No description provided for @loginWithGoogle.
@@ -491,7 +491,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginConnectedHint.
   ///
   /// In en, this message translates to:
-  /// **'You can stay signed in until you need sync features.'**
+  /// **'You can stay signed in until you need sync.'**
   String get loginConnectedHint;
 
   /// No description provided for @loginSuccessSnack.

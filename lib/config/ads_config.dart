@@ -6,7 +6,7 @@ const bool _kDisableAds =
     bool.fromEnvironment('DISABLE_ADS', defaultValue: false);
 
 /// テスター配布中は本番広告を避けるため、デフォルトでテスト広告を強制する。
-/// 本番配布時のみ `--dart-define=FORCE_TEST_ADS=false` を指定する。
+/// ただし iOS release 起動時は [AdHelper] 側で本番広告を優先する。
 const bool kForceTestAds =
     bool.fromEnvironment('FORCE_TEST_ADS', defaultValue: true);
 

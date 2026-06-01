@@ -2138,19 +2138,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ],
         ];
-        double blockHeight = 0;
-        if (thoughtTrim.isNotEmpty) blockHeight += thoughtBlockMaxH;
+        double estimatedBlockHeight = 0;
+        // Date badge + spacing; keep a little extra slack to avoid sub-pixel overflow.
+        estimatedBlockHeight += 34.0;
+        if (thoughtTrim.isNotEmpty) estimatedBlockHeight += thoughtBlockMaxH;
         if (insightRaw.isNotEmpty) {
-          blockHeight += 14.2 * 1.32 * maxObservationTextLines;
-          if (thoughtTrim.isNotEmpty) blockHeight += blockGap;
+          estimatedBlockHeight += 14.2 * 1.32 * maxObservationTextLines;
+          if (thoughtTrim.isNotEmpty) estimatedBlockHeight += blockGap;
         }
         if (actionRaw.isNotEmpty) {
-          blockHeight += 13.6 * 1.32 * maxObservationTextLines;
+          estimatedBlockHeight += 13.6 * 1.32 * maxObservationTextLines;
           if (thoughtTrim.isNotEmpty || insightRaw.isNotEmpty) {
-            blockHeight += blockGap;
+            estimatedBlockHeight += blockGap;
           }
         }
-        blockHeight += 8.0;
+        estimatedBlockHeight += 12.0;
         const horizontalMargin = 12.0;
         const starLabelGap = 24.0;
         final labelSideSpace = placeLabelOnLeft
@@ -2167,17 +2169,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         widgets.add(
           Positioned(
             left: labelLeft,
-            top: y - (blockHeight / 2),
+            top: y - (estimatedBlockHeight / 2),
             child: IgnorePointer(
               child: SizedBox(
                 width: maxLabelWidth,
-                height: blockHeight,
                 child: Opacity(
                   opacity: 0.2 + (0.75 * focusFactor),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: crossAxisAlignment,
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: textLines,
                   ),
                 ),

@@ -20,7 +20,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insightHint =>
-      'Insights & Learnings (e.g.) Small shifts can change everything.';
+      'Insights & Takeaways (e.g.) Small shifts can change everything.';
 
   @override
   String get actionHint => 'Action (small steps are enough)';
@@ -66,7 +66,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Would you like to deepen this thought from your current perspective?';
 
   @override
-  String get starRevisitTitle => 'Star Revisit';
+  String get starRevisitTitle => 'Revisit a Star';
 
   @override
   String get revisitThoughtLabel => 'Past thought:';
@@ -78,7 +78,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateContentButtonLabel => 'Update content';
 
   @override
-  String get revisitComplete => 'Revisit complete';
+  String get revisitComplete => 'Revisit completed';
 
   @override
   String get tutorialStep0 => 'What you think becomes a star';
@@ -90,7 +90,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tutorialPressEnter => 'Press Enter when done';
 
   @override
-  String get tutorialStep2 => 'That became a star';
+  String get tutorialStep2 => 'It became a star';
 
   @override
   String get tutorialStep3 => 'Drag the star and try classifying it';
@@ -122,10 +122,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tutorialStep7Body =>
-      'As your stars increase, Weekly Galaxy helps you review patterns.\nTap to begin.';
+      'As you add more stars, Weekly Galaxy helps you review patterns.\nTap to begin.';
 
   @override
-  String get supportDeveloperTitle => 'Support Developer';
+  String get supportDeveloperTitle => 'Support the Developer';
 
   @override
   String get meteorSupportContent =>
@@ -204,7 +204,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginBenefitSummary =>
-      'Signing in prepares your account for future sync and device transfer. You can keep using guest mode with no problem.';
+      'Signing in prepares your account for future sync and device transfer. You can keep using guest mode without any issues.';
 
   @override
   String get loginWithGoogle => 'Sign in with Google';
@@ -217,7 +217,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loginConnectedHint =>
-      'You can stay signed in until you need sync features.';
+      'You can stay signed in until you need sync.';
 
   @override
   String get loginSuccessSnack => 'Signed in successfully';

@@ -119,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final loc = AppLocalizations.of(context)!;
     if (_backupBusy) return;
 
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.any,
       withData: false,
       withReadStream: false,
@@ -232,219 +232,220 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ResponsiveContentWidth(
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 16),
         child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          ListTile(
-            leading: Icon(
-              Icons.folder_open,
-              color: textColor.withValues(alpha: 0.7),
-            ),
-            title: Text(
-              loc.dataManagementTitle,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.85),
-                letterSpacing: 1.1,
+          padding: EdgeInsets.zero,
+          children: [
+            ListTile(
+              leading: Icon(
+                Icons.folder_open,
+                color: textColor.withValues(alpha: 0.7),
+              ),
+              title: Text(
+                loc.dataManagementTitle,
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.85),
+                  letterSpacing: 1.1,
+                ),
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              loc.dataManagementIntro,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.62),
-                height: 1.4,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          ListTile(
-            enabled: !_backupBusy,
-            leading: Icon(
-              Icons.upload_file,
-              color: textColor.withValues(alpha: 0.65),
-            ),
-            title: Text(
-              loc.exportDataTitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.82)),
-            ),
-            subtitle: Text(
-              loc.exportDataSubtitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
-            ),
-            onTap: _exportData,
-          ),
-          ListTile(
-            enabled: !_backupBusy,
-            leading: Icon(
-              Icons.download,
-              color: textColor.withValues(alpha: 0.65),
-            ),
-            title: Text(
-              loc.importDataTitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.82)),
-            ),
-            subtitle: Text(
-              loc.importDataSubtitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
-            ),
-            onTap: _importData,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              loc.importWarningNote,
-              style: TextStyle(
-                color: Colors.orange.withValues(alpha: 0.6),
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Divider(color: Colors.white.withValues(alpha: 0.08)),
-          ListTile(
-            leading: Icon(
-              isLoggedIn ? Icons.verified_user : Icons.cloud_sync,
-              color: textColor.withValues(alpha: isLoggedIn ? 0.8 : 0.55),
-            ),
-            title: Text(
-              loc.accountSyncTitle,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.75),
-                letterSpacing: 1.1,
-              ),
-            ),
-            subtitle: Text(
-              accountSubtitle,
-              style: TextStyle(color: textColor.withValues(alpha: 0.55)),
-            ),
-          ),
-          if (!isLoggedIn) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
-                loc.loginOptionalDescription,
-                style: TextStyle(color: textColor.withValues(alpha: 0.48)),
+                loc.dataManagementIntro,
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.62),
+                  height: 1.4,
+                  fontSize: 13,
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            ListTile(
+              enabled: !_backupBusy,
+              leading: Icon(
+                Icons.upload_file,
+                color: textColor.withValues(alpha: 0.65),
+              ),
+              title: Text(
+                loc.exportDataTitle,
+                style: TextStyle(color: textColor.withValues(alpha: 0.82)),
+              ),
+              subtitle: Text(
+                loc.exportDataSubtitle,
+                style: TextStyle(color: textColor.withValues(alpha: 0.55)),
+              ),
+              onTap: _exportData,
+            ),
+            ListTile(
+              enabled: !_backupBusy,
+              leading: Icon(
+                Icons.download,
+                color: textColor.withValues(alpha: 0.65),
+              ),
+              title: Text(
+                loc.importDataTitle,
+                style: TextStyle(color: textColor.withValues(alpha: 0.82)),
+              ),
+              subtitle: Text(
+                loc.importDataSubtitle,
+                style: TextStyle(color: textColor.withValues(alpha: 0.55)),
+              ),
+              onTap: _importData,
+            ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                loc.importWarningNote,
+                style: TextStyle(
+                  color: Colors.orange.withValues(alpha: 0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Divider(color: Colors.white.withValues(alpha: 0.08)),
+            ListTile(
+              leading: Icon(
+                isLoggedIn ? Icons.verified_user : Icons.cloud_sync,
+                color: textColor.withValues(alpha: isLoggedIn ? 0.8 : 0.55),
+              ),
+              title: Text(
+                loc.accountSyncTitle,
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.75),
+                  letterSpacing: 1.1,
+                ),
+              ),
+              subtitle: Text(
+                accountSubtitle,
+                style: TextStyle(color: textColor.withValues(alpha: 0.55)),
+              ),
+            ),
+            if (!isLoggedIn) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  loc.loginOptionalDescription,
+                  style: TextStyle(color: textColor.withValues(alpha: 0.48)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.02),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: textColor.withValues(alpha: 0.5),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          loc.loginBenefitSummary,
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.52),
+                            height: 1.35,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: textColor.withValues(alpha: 0.5),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _signIn('google'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _activeSignInProvider == 'google'
+                              ? const Color(0xFF111624)
+                              : null,
+                        ),
+                        icon: const _GoogleLogoIcon(size: 20),
+                        label: Text(loc.loginWithGoogle),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        loc.loginBenefitSummary,
-                        style: TextStyle(
-                          color: textColor.withValues(alpha: 0.52),
-                          height: 1.35,
-                          fontSize: 13,
+                      child: FilledButton.icon(
+                        onPressed: () => _signIn('apple'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _activeSignInProvider == 'apple'
+                              ? const Color(0xFF111624)
+                              : null,
                         ),
+                        icon: const Icon(Icons.apple),
+                        label: Text(loc.loginWithApple),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _signIn('google'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _activeSignInProvider == 'google'
-                            ? const Color(0xFF111624)
-                            : null,
-                      ),
-                      icon: const _GoogleLogoIcon(size: 20),
-                      label: Text(loc.loginWithGoogle),
-                    ),
+            ] else ...[
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _authBusy ? null : _signOut,
+                    icon: const Icon(Icons.logout),
+                    label: Text(loc.logoutButton),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _signIn('apple'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _activeSignInProvider == 'apple'
-                            ? const Color(0xFF111624)
-                            : null,
-                      ),
-                      icon: const Icon(Icons.apple),
-                      label: Text(loc.loginWithApple),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _authBusy ? null : _signOut,
-                  icon: const Icon(Icons.logout),
-                  label: Text(loc.logoutButton),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  loc.loginConnectedHint,
+                  style: TextStyle(color: textColor.withValues(alpha: 0.45)),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Divider(color: Colors.white.withValues(alpha: 0.08)),
+            ListTile(
+              enabled: false,
+              leading: Icon(
+                Icons.workspace_premium,
+                color: textColor.withValues(alpha: 0.38),
+              ),
+              title: Text(
+                loc.premiumPlanTitle,
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.55),
+                  letterSpacing: 1.1,
+                ),
+              ),
+              subtitle: Text(
+                loc.futureBillingPlan,
+                style: TextStyle(color: textColor.withValues(alpha: 0.42)),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                loc.loginConnectedHint,
-                style: TextStyle(color: textColor.withValues(alpha: 0.45)),
+            const SizedBox(height: 20),
+            Text(
+              loc.comingSoonLabel,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor.withValues(alpha: 0.48),
+                letterSpacing: 0.6,
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          Divider(color: Colors.white.withValues(alpha: 0.08)),
-          ListTile(
-            enabled: false,
-            leading: Icon(
-              Icons.workspace_premium,
-              color: textColor.withValues(alpha: 0.38),
-            ),
-            title: Text(
-              loc.premiumPlanTitle,
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.55),
-                letterSpacing: 1.1,
-              ),
-            ),
-            subtitle: Text(
-              loc.futureBillingPlan,
-              style: TextStyle(color: textColor.withValues(alpha: 0.42)),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            loc.comingSoonLabel,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: textColor.withValues(alpha: 0.48),
-              letterSpacing: 0.6,
-            ),
-          ),
-        ],
         ),
       ),
     );
