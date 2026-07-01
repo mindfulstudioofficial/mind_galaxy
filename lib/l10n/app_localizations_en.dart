@@ -9,24 +9,25 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get simpleMode => 'Simple Input';
+  String get simpleMode => 'Quick entry';
 
   @override
-  String get bulkMode => 'Bulk Input';
+  String get bulkMode => 'Full entry';
 
   @override
-  String get inputHint =>
-      'Give your thoughts a voice... (e.g.) Tonight, I noticed the stars.';
+  String get inputHint => '(e.g.) The night sky was clear today.';
 
   @override
-  String get insightHint =>
-      'Insights & Takeaways (e.g.) Small shifts can change everything.';
+  String get insightHint => '(e.g.) The stars were easy to see.';
 
   @override
-  String get actionHint => 'Action (small steps are enough)';
+  String get actionHint => '(e.g.) Count one star before bed.';
 
   @override
-  String get saveThought => '⭐ Save Thought';
+  String get homeTooltip => 'Home';
+
+  @override
+  String get saveThought => '⭐ Release Star to the Galaxy';
 
   @override
   String get adSpace => 'Ad Space';
@@ -44,29 +45,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteThought => 'Delete Thought';
 
   @override
-  String get revisitTitle => 'Revisit Thoughts';
-
-  @override
   String get weeklyGalaxy => 'Weekly Galaxy';
 
   @override
-  String get revisitPromptAddAction =>
-      'Would you like to take this one step now?';
+  String get revisitPromptAddAction => 'Would you like to take this step now?';
 
   @override
-  String get revisitPromptAddInsight =>
-      'Would you like to add a new insight to this thought?';
+  String get revisitPromptAddInsight => 'Would you like to add a new insight?';
 
   @override
   String get revisitPromptReflectTimePassed =>
-      'Try putting into words what changed over time.';
+      'Try putting what changed over time into words.';
 
   @override
   String get revisitPromptDeepen =>
-      'Would you like to deepen this thought from your current perspective?';
+      'Would you like to look at this thought again from your current perspective?';
 
   @override
   String get starRevisitTitle => 'Revisit a Star';
+
+  @override
+  String get constellationContextHint => 'Stars in this constellation';
+
+  @override
+  String get constellationMainStarLabel => 'Star revisited today';
+
+  @override
+  String get constellationContextLabel => 'Other stars in this constellation';
 
   @override
   String get revisitThoughtLabel => 'Past thought:';
@@ -75,7 +80,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get laterButtonLabel => 'Later';
 
   @override
-  String get updateContentButtonLabel => 'Update content';
+  String get updateContentButtonLabel => 'Update thought';
 
   @override
   String get revisitComplete => 'Revisit completed';
@@ -123,6 +128,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get tutorialStep7Body =>
       'As you add more stars, Weekly Galaxy helps you review patterns.\nTap to begin.';
+
+  @override
+  String get onboardingInputHeadline => 'What you think becomes a star';
+
+  @override
+  String get onboardingInputSubline => 'Your own galaxy begins here';
+
+  @override
+  String get onboardingInputHint => 'What\'s on your mind right now…';
+
+  @override
+  String get onboardingSubmitButton => 'Make it a star';
+
+  @override
+  String get onboardingBeat1Born => 'Your words have become light';
+
+  @override
+  String get onboardingBeat2Grow => 'Stars grow with insight and action';
+
+  @override
+  String get onboardingBeat3Future =>
+      'Each revisit connects your stars—until they form a constellation';
+
+  @override
+  String get onboardingSaveFailed => 'Couldn\'t save. Please try again.';
 
   @override
   String get supportDeveloperTitle => 'Support the Developer';
@@ -316,19 +346,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareWeeklyGalaxyTooltip => 'Share Weekly Galaxy';
 
   @override
-  String get insightLabel => 'Insight';
-
-  @override
-  String get popupInsightHint => 'Write your learnings and insights...';
+  String get insightLabel => 'Insight & learning';
 
   @override
   String get actionLabel => 'Action';
-
-  @override
-  String get popupActionHint => 'Action (small steps are OK)';
-
-  @override
-  String get releaseStarToGalaxy => 'Release this star into your galaxy';
 
   @override
   String get comingSoonLabel => 'Coming Soon...';
@@ -376,7 +397,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String weekOfMonthLabel(int year, int month, int week) {
-    return 'Week $week, $month/$year';
+    return 'Week $week of $month/$year';
   }
 
   @override

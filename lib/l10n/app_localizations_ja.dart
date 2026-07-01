@@ -15,16 +15,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get bulkMode => 'まとめて入力';
 
   @override
-  String get inputHint => '思考を言葉に…（例）今日の夜空は星が見えた。';
+  String get inputHint => '（例）今日は夜空が澄んでいた。';
 
   @override
-  String get insightHint => '気づき・学び (例) 日常の中にも小さな変化はある';
+  String get insightHint => '（例）星がよく見えた。';
 
   @override
-  String get actionHint => '行動（小さくてOK）';
+  String get actionHint => '（例）寝る前に、星を一つ数える。';
 
   @override
-  String get saveThought => '⭐ 思考を保存する';
+  String get homeTooltip => 'ホーム';
+
+  @override
+  String get saveThought => '⭐ 星を銀河に放つ';
 
   @override
   String get adSpace => '広告エリア';
@@ -42,25 +45,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String get deleteThought => '思考を削除';
 
   @override
-  String get revisitTitle => '過去の思考を再訪';
-
-  @override
   String get weeklyGalaxy => '週間銀河';
 
   @override
   String get revisitPromptAddAction => 'この一歩を、今踏み出しませんか？';
 
   @override
-  String get revisitPromptAddInsight => 'この思考に、新しい気づきを加えてみませんか？';
+  String get revisitPromptAddInsight => '新しい気づき、書き足してみませんか？';
 
   @override
-  String get revisitPromptReflectTimePassed => '時間をおいて見えてきた変化を、言葉にしてみましょう。';
+  String get revisitPromptReflectTimePassed => '時間を置いて見えてきた変化を言葉にしてみませんか？';
 
   @override
-  String get revisitPromptDeepen => '今の視点で、この思考をもう一歩深めてみませんか？';
+  String get revisitPromptDeepen => '今の視点で、もう一度この思考を眺めてみませんか？';
 
   @override
   String get starRevisitTitle => '星の再訪';
+
+  @override
+  String get constellationContextHint => '今、結んでいた星';
+
+  @override
+  String get constellationMainStarLabel => '今、再訪した星';
+
+  @override
+  String get constellationContextLabel => '並んでいた星';
 
   @override
   String get revisitThoughtLabel => 'かつての思考：';
@@ -115,6 +124,30 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get tutorialStep7Body => '思考が増えると、週間銀河で流れを振り返れます。\nタップして始めよう。';
+
+  @override
+  String get onboardingInputHeadline => '思ったことは、星になる';
+
+  @override
+  String get onboardingInputSubline => 'あなただけの宇宙が、ここから始まる';
+
+  @override
+  String get onboardingInputHint => '今、心に浮かんだことを…';
+
+  @override
+  String get onboardingSubmitButton => '星にする';
+
+  @override
+  String get onboardingBeat1Born => 'あなたの言葉が、光になった';
+
+  @override
+  String get onboardingBeat2Grow => '星は、気づきと行動で育っていく';
+
+  @override
+  String get onboardingBeat3Future => '振り返るたび、星はつながり、やがて星座になります';
+
+  @override
+  String get onboardingSaveFailed => '保存に失敗しました。もう一度お試しください';
 
   @override
   String get supportDeveloperTitle => '開発者を支援';
@@ -297,19 +330,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get shareWeeklyGalaxyTooltip => '週間銀河を共有';
 
   @override
-  String get insightLabel => '気づき';
-
-  @override
-  String get popupInsightHint => '学びや気づきをメモ…';
+  String get insightLabel => '気づき・学び';
 
   @override
   String get actionLabel => '行動';
-
-  @override
-  String get popupActionHint => '行動（小さくてOK）';
-
-  @override
-  String get releaseStarToGalaxy => '星を銀河に放つ';
 
   @override
   String get comingSoonLabel => '近日公開…';

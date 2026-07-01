@@ -10,11 +10,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/central_star.dart';
 import '../widgets/thought_star.dart';
 import '../models/thought.dart';
-import '../overlays/thought_popup.dart';
+import '../utils/constants.dart';
 import '../config/ads_config.dart';
 import '../services/app_settings.dart';
 import '../utils/ad_helper.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/revisit_prompt.dart';
+import '../utils/constellation_layout.dart';
+import '../utils/constellation_naming.dart';
+import '../widgets/constellation_lines_overlay.dart';
+import '../overlays/thought_popup.dart';
 import 'input_screen.dart';
 import 'settings_screen.dart';
 import 'weekly_galaxy_screen.dart';
@@ -30,14 +35,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const String _supportEmail = 'mindful.studio.official@gmail.com';
   static const String _privacyPolicyUrl =
       'https://docs.google.com/document/d/e/2PACX-1vTbrdJ28P5n0d7xxAwNn9fOiTvXUEGbirNim-p8PwwnAIpFJd2y9cV-g6puFW7yPe_YG-eCyweE99Ow/pub';
-  static const double _tutorialDragVisualYOffset = 50.0;
-  static const double _tutorialStarSpawnRightOffset = 64.0;
-  static const double _tutorialStarSpawnVerticalOffset = -8.0;
   static const int _maxVisibleThoughts = 30;
   static const double _observationSpacing = 140.0;
   static const int _meteorMinActive = 1;
   static const int _meteorMaxActive = 3;
-  static const int _tutorialInteractiveStep = 8;
+  static const int _tutorialInteractiveStep = 2;
+  static const Duration _onboardingBeat1Duration = Duration(milliseconds: 1400);
+  static const Duration _onboardingBeat2Duration = Duration(milliseconds: 1200);
+  static const Duration _onboardingBeat3Duration = Duration(milliseconds: 1200);
   final List<Offset> _smallStars = [];
   final Random _random = Random();
   final List<Thought> _thoughts = [];
@@ -50,18 +55,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final List<int> _observationSearchMatches = <int>[];
   int _observationSearchMatchCursor = -1;
   int _thoughtIdCounter = 0;
+  int? _spawnHighlightThoughtId;
+  Timer? _spawnHighlightTimer;
 
   Offset _deleteHolePosition = Offset.zero; // 右上のゴミ箱用
   Offset _revisitCenterPosition = Offset.zero; // 中央の再訪用
 
-  // チュートリアル管理
+  // 星座システム
+  List<Thought> _activeConstellation = [];
+  Thought? _constellationMain;
+  List<Thought> _constellationContext = [];
+  bool _constellationFormed = false;
+  bool _isConstellationAnimating = false;
+  String? _constellationName;
+  final Map<int, Offset> _constellationOriginalPositions = {};
+  final Map<int, Offset> _constellationFormationTargets = {};
+  bool _showConstellationLines = false;
+  bool _revisitDialogOpen = false;
+
+  // オンボーディング管理
   int _tutorialStep = 0;
+  int _onboardingBeat = 0;
+  bool _tutorialCompleting = false;
+  Timer? _onboardingBeatTimer;
   final TextEditingController _controller = TextEditingController();
-  String _inputText = "";
-  Offset _tutorialStar = Offset.zero;
-  Offset? _tutorialDragTouchOffset;
-  bool _isDragging = false;
-  Color _tutorialStarColor = Colors.white;
   final bool _flashCenter = false;
   Timer? _refreshTimer;
   Timer? _meteorSpawnTimer;
@@ -72,32 +89,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isRewardAdShowing = false;
   int _dailyReflectionCount = 0;
 
-  void _resetTutorialStarPosition([Size? size]) {
-    final viewport = size ?? MediaQuery.of(context).size;
-    if (viewport.width <= 0 || viewport.height <= 0) {
-      _tutorialStar = Offset.zero;
-      return;
-    }
-    final centerX = viewport.width * 0.5;
-    final centerY = viewport.height * 0.5;
-    final minX = centerX + 28.0;
-    final maxX = viewport.width - 64.0;
-    final spawnX = maxX < minX
-        ? centerX
-        : (centerX + _tutorialStarSpawnRightOffset)
-            .clamp(minX, maxX)
-            .toDouble();
-
-    final minY = viewport.height * 0.36;
-    final maxY = centerY + 28.0;
-    final spawnY = maxY < minY
-        ? centerY
-        : (centerY + _tutorialStarSpawnVerticalOffset)
-            .clamp(minY, maxY)
-            .toDouble();
-    _tutorialStar = Offset(spawnX, spawnY);
-  }
-
   @override
   void initState() {
     super.initState();
@@ -106,14 +97,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final settingsBox = Hive.box('settings');
     final allThoughts = _loadThoughtsFromBox(box);
     final isTutorialDone = settingsBox.get('tutorialDone', defaultValue: false);
-    _tutorialStep = isTutorialDone ? _tutorialInteractiveStep : 0;
-    _observationThoughts
-      ..clear()
-      ..addAll(allThoughts..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
-    allThoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    _thoughts
-      ..clear()
-      ..addAll(allThoughts.take(_maxVisibleThoughts));
+    if (isTutorialDone) {
+      _tutorialStep = _tutorialInteractiveStep;
+    } else if (allThoughts.isNotEmpty) {
+      unawaited(settingsBox.put('tutorialDone', true));
+      _tutorialStep = _tutorialInteractiveStep;
+    } else {
+      _tutorialStep = 0;
+    }
+    _applyLoadedThoughts(allThoughts);
     _loadDailyReflectionState(settingsBox);
     _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
@@ -138,9 +130,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         );
       }
-      _resetTutorialStarPosition(size);
-      setState(() {});
+      if (mounted) setState(() {});
     });
+  }
+
+  bool _isJapaneseLocale() {
+    return Localizations.localeOf(context).languageCode.startsWith('ja');
   }
 
   static const Set<String> _validCategories = {
@@ -169,6 +164,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (t.id >= _thoughtIdCounter) _thoughtIdCounter = t.id + 1;
     }
     return allThoughts;
+  }
+
+  void _applyLoadedThoughts(List<Thought> allThoughts) {
+    _observationThoughts
+      ..clear()
+      ..addAll(allThoughts..sort((a, b) => a.createdAt.compareTo(b.createdAt)));
+    allThoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    _thoughts
+      ..clear()
+      ..addAll(allThoughts.take(_maxVisibleThoughts));
+    _rebuildObservationSearchMatches();
+  }
+
+  /// Re-reads Hive after backup import so the UI matches stored data.
+  Future<void> _reloadThoughtsFromHive() async {
+    _thoughtIdCounter = 0;
+    _spawnHighlightTimer?.cancel();
+    _spawnHighlightThoughtId = null;
+
+    final allThoughts =
+        _loadThoughtsFromBox(Hive.box<Thought>('thoughts'));
+    _applyLoadedThoughts(allThoughts);
+
+    if (!mounted) return;
+    final size = MediaQuery.of(context).size;
+    await _clampThoughtsToViewport(size);
+    if (mounted) setState(() {});
   }
 
   Future<void> _clampThoughtsToViewport(Size size) async {
@@ -214,6 +236,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _refreshTimer?.cancel();
     _meteorSpawnTimer?.cancel();
     _meteorFrameTimer?.cancel();
+    _spawnHighlightTimer?.cancel();
+    _onboardingBeatTimer?.cancel();
     _rewardedAd?.dispose();
     _controller.dispose();
     _observationSearchController.dispose();
@@ -222,7 +246,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // --- 再訪イベント関連の処理 ---
 
-  bool _isBlank(String? value) => value == null || value.trim().isEmpty;
+  bool _isBlank(String? value) => isThoughtFieldBlank(value);
 
   String _dayKey(DateTime dt) {
     final m = dt.month.toString().padLeft(2, '0');
@@ -245,6 +269,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   bool _hasReflectionQuota() {
+    if (kForceRevisitDebug) return true;
     final now = DateTime.now();
     final settingsBox = Hive.box('settings');
     final todayKey = _dayKey(now);
@@ -291,18 +316,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   List<Thought> _reflectionCandidates(DateTime now) {
-    final due =
-        _thoughts.where((t) => _isNearReflectionTiming(t, now)).toList();
-    if (due.isNotEmpty) return due;
+    if (kForceRevisitDebug && _thoughts.isNotEmpty) {
+      return List<Thought>.from(_thoughts.take(min(4, _thoughts.length)));
+    }
 
-    // 全て行動まで入力済みなら、古い星側からランダム抽出できる候補を返す
-    final allCompleted =
-        _thoughts.isNotEmpty && _thoughts.every((t) => !_isBlank(t.action));
-    if (!allCompleted) return const [];
+    final due = _thoughts.where((t) => _isNearReflectionTiming(t, now)).toList()
+      ..sort((a, b) => _reflectionScore(b, now).compareTo(_reflectionScore(a, now)));
 
-    final oldestFirst = [..._thoughts]
-      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return oldestFirst.take(min(10, oldestFirst.length)).toList();
+    if (due.isEmpty) {
+      final allCompleted =
+          _thoughts.isNotEmpty && _thoughts.every((t) => !_isBlank(t.action));
+      if (!allCompleted) return const [];
+      final oldestFirst = [..._thoughts]
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      return oldestFirst.take(min(4, oldestFirst.length)).toList();
+    }
+
+    final group = <Thought>[];
+    final usedIds = <int>{};
+    for (final t in due) {
+      if (group.length >= 4) break;
+      group.add(t);
+      usedIds.add(t.id);
+    }
+
+    _fillConstellationFallbacks(group, usedIds, now, minCount: 2);
+    if (group.length >= 2 && group.length < 3 && _thoughts.length >= 3) {
+      _fillConstellationFallbacks(group, usedIds, now, minCount: 3);
+    }
+    return group;
+  }
+
+  void _fillConstellationFallbacks(
+    List<Thought> group,
+    Set<int> usedIds,
+    DateTime now, {
+    required int minCount,
+  }) {
+    if (group.length >= minCount || group.length >= 4) return;
+    final ranked = [..._thoughts]
+      ..sort((a, b) => _reflectionScore(b, now).compareTo(_reflectionScore(a, now)));
+    for (final t in ranked) {
+      if (group.length >= minCount || group.length >= 4) break;
+      if (usedIds.contains(t.id)) continue;
+      group.add(t);
+      usedIds.add(t.id);
+    }
   }
 
   int _reflectionScore(Thought t, DateTime now) {
@@ -324,144 +383,185 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return best[_random.nextInt(best.length)];
   }
 
-  String _buildRevisitPrompt(Thought thought) {
-    final loc = AppLocalizations.of(context)!;
-    if (_isBlank(thought.action)) {
-      return loc.revisitPromptAddAction;
-    }
-    if (_isBlank(thought.insight)) {
-      return loc.revisitPromptAddInsight;
-    }
-    if (DateTime.now().difference(thought.createdAt).inDays >= 7) {
-      return loc.revisitPromptReflectTimePassed;
-    }
-    return loc.revisitPromptDeepen;
-  }
-
   void _startRevisitEvent() async {
+    if (_isConstellationAnimating) return;
+    if (_constellationFormed && _constellationMain != null) {
+      _openConstellationRevisit();
+      return;
+    }
+
     HapticFeedback.heavyImpact();
 
     if (!_hasReflectionQuota()) return;
     final now = DateTime.now();
-    final candidates = _reflectionCandidates(now);
-    if (candidates.isEmpty) return;
+    final group = _reflectionCandidates(now);
+    if (group.isEmpty) return;
 
-    final target = _pickWeightedRevisitTarget(candidates, now);
-    if (target == null) return;
+    final main = _pickWeightedRevisitTarget(group, now) ?? group.first;
+    final context = group.where((t) => t.id != main.id).toList();
+    final members = [main, ...context];
 
-    // 🚀 演出：星を中央に引き寄せる（追加したアニメーションを呼び出す）
-    await _animateStarToCenter(target);
-    if (!mounted) return;
-    await _recordReflectionTriggered();
-    if (!mounted) return;
+    _constellationOriginalPositions.clear();
+    _constellationFormationTargets.clear();
+    for (final t in members) {
+      _constellationOriginalPositions[t.id] = Offset(t.dx, t.dy);
+    }
 
-    // 引き寄せが終わったらダイアログを表示
-    _showRevisitDialog(target);
-  }
-
-  // 🚀 ここから追加
-  Future<void> _animateStarToCenter(Thought thought) async {
-    final size = MediaQuery.of(context).size;
-    final center = Offset(size.width / 2, size.height / 2);
-
-    // 移動前の元の場所を覚えておく
-    final startX = thought.dx;
-    final startY = thought.dy;
-
-    // 0.8秒かけて中央へ移動させる
-    final controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
+    final slots = constellationLayoutSlots(
+      members.length,
+      _revisitCenterPosition,
     );
+    for (var i = 0; i < members.length; i++) {
+      _constellationFormationTargets[members[i].id] = slots[i];
+    }
 
-    // 弾むような動き（elasticOut）を設定
-    final animation = CurvedAnimation(
-      parent: controller,
-      curve: Curves.elasticOut,
-    );
-
-    // アニメーションの進行に合わせて座標を書き換える
-    controller.addListener(() {
-      setState(() {
-        // lerpDoubleを使って、開始点から中心点までを滑らかに繋ぐ
-        thought.dx = lerpDouble(startX, center.dx, animation.value)!;
-        thought.dy = lerpDouble(startY, center.dy, animation.value)!;
-      });
+    setState(() {
+      _activeConstellation = members;
+      _constellationMain = main;
+      _constellationContext = context;
+      _constellationName = deriveConstellationName(
+        members,
+        japaneseSuffix: _isJapaneseLocale(),
+      );
+      _isConstellationAnimating = true;
+      _constellationFormed = false;
+      _showConstellationLines = false;
     });
 
-    // アニメーション開始し、終わるまで待機
-    await controller.forward();
-    controller.dispose();
-  }
-  // 🚀 ここまで追加
+    await _animateConstellationFormation(members);
+    if (!mounted) return;
 
-  void _showRevisitDialog(Thought thought) {
-    final loc = AppLocalizations.of(context)!;
-    final prompt = _buildRevisitPrompt(thought);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          "✨ ${loc.starRevisitTitle}",
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              loc.revisitThoughtLabel,
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
-            ),
-            const SizedBox(height: 8),
-            Text("「${thought.content}」",
-                style:
-                    const TextStyle(color: Colors.yellowAccent, fontSize: 18)),
-            const SizedBox(height: 20),
-            Text(prompt,
-                style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              loc.laterButtonLabel,
-              style: const TextStyle(color: Colors.white38),
-            ),
-          ),
-          // 120行目付近
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context); // 再訪ダイアログを閉じる
-              _editThought(thought); // 🚀 共通の詳細表示メソッドを呼ぶ
-            },
-            child: Text(loc.updateContentButtonLabel),
-          ),
-        ],
-      ),
-    );
+    setState(() => _showConstellationLines = true);
   }
 
-  void _showThoughtDetail(Thought thought) {
-    ThoughtPopup.show(
-      context: context,
-      thought: thought,
-      onUpdated: () {
-        if (!mounted) return;
-        setState(() {});
-      },
-      onThoughtDeleted: () {
+  Future<void> _animateConstellationFormation(List<Thought> members) async {
+    final controllers = <AnimationController>[];
+    final startPositions = <int, Offset>{};
+    for (final t in members) {
+      startPositions[t.id] = Offset(t.dx, t.dy);
+    }
+
+    for (var i = 0; i < members.length; i++) {
+      final thought = members[i];
+      final target = _constellationFormationTargets[thought.id]!;
+      final start = startPositions[thought.id]!;
+      final delayMs = i * 90;
+
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
+      if (!mounted) return;
+
+      final controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 820),
+      );
+      controllers.add(controller);
+      final animation = CurvedAnimation(
+        parent: controller,
+        curve: Curves.elasticOut,
+      );
+
+      controller.addListener(() {
         if (!mounted) return;
         setState(() {
-          _thoughts.remove(thought);
-          _observationThoughts.remove(thought);
-          _rebuildObservationSearchMatches();
+          thought.dx = lerpDouble(start.dx, target.dx, animation.value)!;
+          thought.dy = lerpDouble(start.dy, target.dy, animation.value)!;
         });
-      },
+      });
+
+      await controller.forward();
+    }
+
+    for (final c in controllers) {
+      c.dispose();
+    }
+    if (!mounted) return;
+    setState(() {
+      _isConstellationAnimating = false;
+      _constellationFormed = true;
+    });
+  }
+
+  void _onConstellationLinesComplete() async {
+    if (!mounted) return;
+    await SystemSound.play(SystemSoundType.click);
+    HapticFeedback.lightImpact();
+    if (!mounted) return;
+    setState(() => _showConstellationLines = false);
+
+    // 線の演出が終わったら再訪ダイアログを自動表示
+    await Future<void>.delayed(const Duration(milliseconds: 420));
+    if (!mounted || !_constellationFormed || _constellationMain == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _openConstellationRevisit();
+    });
+  }
+
+  void _onConstellationLineConnected() {
+    HapticFeedback.lightImpact();
+  }
+
+  /// Ends a constellation revisit: restores star layout and optionally counts quota.
+  Future<void> _finishConstellationRevisitSession({required bool saved}) async {
+    if (!_constellationFormed && _activeConstellation.isEmpty) return;
+    if (saved) {
+      await _recordReflectionTriggered();
+    }
+    if (!mounted) return;
+    _resetConstellationState();
+  }
+
+  Future<void> _openConstellationRevisit() async {
+    if (_revisitDialogOpen) return;
+    final main = _constellationMain;
+    if (main == null) return;
+    _revisitDialogOpen = true;
+
+    final chosenUpdate = await ThoughtPopup.show(
+      context,
+      mainThought: main,
+      contextThoughts: _constellationContext,
+      constellationName: _constellationName,
     );
+
+    if (!mounted) return;
+    _revisitDialogOpen = false;
+
+    if (chosenUpdate == true) {
+      final saved = await _editThought(
+        main,
+        focusFollowupOnOpen: true,
+        advanceRevisitScheduleOnSave: true,
+        contextThoughts: _constellationContext,
+      );
+      await _finishConstellationRevisitSession(saved: saved == true);
+    } else {
+      await _finishConstellationRevisitSession(saved: false);
+    }
+  }
+
+  void _resetConstellationState() {
+    for (final entry in _constellationOriginalPositions.entries) {
+      final thought = _thoughts.cast<Thought?>().firstWhere(
+            (t) => t?.id == entry.key,
+            orElse: () => null,
+          );
+      if (thought != null) {
+        thought.dx = entry.value.dx;
+        thought.dy = entry.value.dy;
+        if (thought.isInBox) thought.save();
+      }
+    }
+    setState(() {
+      _activeConstellation = [];
+      _constellationMain = null;
+      _constellationContext = [];
+      _constellationFormed = false;
+      _isConstellationAnimating = false;
+      _constellationName = null;
+      _constellationOriginalPositions.clear();
+      _constellationFormationTargets.clear();
+      _showConstellationLines = false;
+    });
   }
 
   // 3. カテゴリ色の取得（もし未実装なら追加）
@@ -480,17 +580,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  String _colorToCategory(Color color) {
-    if (color == Colors.blue) return "future";
-    if (color == Colors.purple) return "past";
-    if (color == Colors.pink) return "emotion";
-    if (color == Colors.yellow) return "action";
-    return "neutral";
-  }
-
   // 🚀 ここから追加
-  Future<void> _editThought(Thought thought) async {
-    await Navigator.push(
+  Future<bool?> _editThought(
+    Thought thought, {
+    bool focusFollowupOnOpen = false,
+    bool advanceRevisitScheduleOnSave = false,
+    List<Thought>? contextThoughts,
+  }) async {
+    final result = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
         builder: (context) => InputScreen(
@@ -502,22 +599,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           initialGlowIntensity: thought.glowIntensity,
           initialParticleSpread: thought.particleSpread,
           forceBulkMode: true,
-          focusFollowupOnOpen: true,
+          focusFollowupOnOpen: focusFollowupOnOpen,
+          advanceRevisitScheduleOnSave: advanceRevisitScheduleOnSave,
+          contextThoughts: contextThoughts,
         ),
         fullscreenDialog: true,
       ),
     );
-    if (!mounted) return;
+    if (!mounted) return result == true ? true : null;
+    final shouldHighlight = result == true ||
+        result == InputScreen.highlightOnReturnHome;
+    if (shouldHighlight) {
+      _markNewlySpawnedThought(thought);
+    }
     setState(() {});
-    HapticFeedback.lightImpact();
-    debugPrint(
-        "${AppLocalizations.of(context)!.revisitComplete}: ${thought.content}");
+    if (result == true) {
+      HapticFeedback.lightImpact();
+      debugPrint(
+          "${AppLocalizations.of(context)!.revisitComplete}: ${thought.content}");
+    }
+    return result == true ? true : null;
   }
   // 🚀 ここまで追加
 
-  // --- チュートリアル関連 ---
+  // --- オンボーディング関連 ---
 
-  Future<void> _createThoughtFromTutorial() async {
+  Future<void> _createThoughtFromTutorial(String content) async {
     final size = MediaQuery.of(context).size;
     final center = Offset(size.width / 2, size.height / 2);
     final radians = _random.nextDouble() * 2 * pi;
@@ -526,16 +633,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final dx = center.dx + distance * cos(radians);
     final dy = center.dy + distance * sin(radians);
 
-    final finalCategory = _colorToCategory(_tutorialStarColor);
-
     final newThought = Thought(
       id: _thoughtIdCounter++,
       dx: dx,
       dy: dy,
-      content: _inputText,
+      content: content,
       insight: null,
       action: null,
-      category: finalCategory,
+      category: 'neutral',
       createdAt: DateTime.now(),
       revisitAt: DateTime.now().add(const Duration(days: 1)),
       revisitCount: 1,
@@ -551,19 +656,80 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     setState(() => _insertIntoVisibleThoughts(newThought));
   }
 
-  void _insertIntoVisibleThoughts(Thought thought) {
-    _observationThoughts.add(thought);
-    _observationThoughts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    _rebuildObservationSearchMatches();
-    _thoughts.add(thought);
-    _thoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    if (_thoughts.length > _maxVisibleThoughts) {
-      _thoughts.removeRange(_maxVisibleThoughts, _thoughts.length);
+  Future<void> _submitOnboardingInput() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) return;
+
+    HapticFeedback.lightImpact();
+    FocusScope.of(context).unfocus();
+
+    await _createThoughtFromTutorial(content);
+    if (!mounted) return;
+
+    setState(() {
+      _tutorialStep = 1;
+      _onboardingBeat = 0;
+      _tutorialCompleting = false;
+    });
+    _startOnboardingBeatSequence();
+  }
+
+  void _startOnboardingBeatSequence() {
+    _onboardingBeatTimer?.cancel();
+    _onboardingBeatTimer = Timer(_onboardingBeat1Duration, () {
+      if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
+      setState(() => _onboardingBeat = 1);
+      _onboardingBeatTimer = Timer(_onboardingBeat2Duration, () {
+        if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
+        setState(() => _onboardingBeat = 2);
+        _onboardingBeatTimer = Timer(_onboardingBeat3Duration, () {
+          if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
+          unawaited(_completeOnboarding());
+        });
+      });
+    });
+  }
+
+  Future<void> _completeOnboarding() async {
+    if (_tutorialCompleting) return;
+    _tutorialCompleting = true;
+    _onboardingBeatTimer?.cancel();
+    HapticFeedback.lightImpact();
+
+    try {
+      await Hive.box('settings').put('tutorialDone', true);
+    } catch (_) {
+      if (!mounted) return;
+      _tutorialCompleting = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.onboardingSaveFailed),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _tutorialStep = _tutorialInteractiveStep;
+      _tutorialCompleting = false;
+    });
+  }
+
+  String _onboardingBeatText(AppLocalizations loc) {
+    switch (_onboardingBeat) {
+      case 0:
+        return loc.onboardingBeat1Born;
+      case 1:
+        return loc.onboardingBeat2Grow;
+      default:
+        return loc.onboardingBeat3Future;
     }
   }
 
-  Widget _buildTutorialText(String text) {
+  Widget _buildTutorialText(String text, {Key? key}) {
     return Container(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 50),
       child: Text(
         text,
@@ -580,6 +746,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildTutorialSublineText(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.6),
+          fontSize: 14,
+          fontWeight: FontWeight.w300,
+          letterSpacing: 0.8,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+
+  void _insertIntoVisibleThoughts(Thought thought) {
+    _observationThoughts.add(thought);
+    _observationThoughts.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _rebuildObservationSearchMatches();
+    _thoughts.add(thought);
+    _thoughts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (_thoughts.length > _maxVisibleThoughts) {
+      _thoughts.removeRange(_maxVisibleThoughts, _thoughts.length);
+    }
+    _markNewlySpawnedThought(thought);
+  }
+
+  void _markNewlySpawnedThought(Thought thought) {
+    _spawnHighlightTimer?.cancel();
+    _spawnHighlightThoughtId = thought.id;
+    _spawnHighlightTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      if (_spawnHighlightThoughtId != thought.id) return;
+      setState(() => _spawnHighlightThoughtId = null);
+    });
+  }
+
   Widget _tutorialVeil() {
     if (_tutorialStep >= _tutorialInteractiveStep) {
       return const SizedBox.shrink();
@@ -594,576 +799,119 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return const SizedBox.shrink();
     }
     final size = MediaQuery.of(context).size;
-    final viewPadding = MediaQuery.of(context).viewPadding;
     final loc = AppLocalizations.of(context)!;
-    // Shorter phones (e.g. iPhone 8 Plus ~736pt): step-3 caption, quadrant hints, and
-    // wrapped English lines share the vertical band—keep caption high and hints lower;
-    // avoid lifting "Up: Future" into the caption (was translate -12).
     final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
     final tutorialCompactLayout = isPhoneLayout && size.height <= 760;
-    final tutorialControlCompactLayout = isPhoneLayout && size.height <= 740;
-    final tutorialBottomControlOffset =
-        viewPadding.bottom + (tutorialControlCompactLayout ? 10.0 : 16.0);
-    final tutorialControlButtonSize =
-        tutorialControlCompactLayout ? 50.0 : 56.0;
-    final tutorialStep3TextAlignment = tutorialCompactLayout
-        ? const Alignment(0, -0.58)
-        : const Alignment(0, -0.4);
-    final tutorialDragHintsTop = tutorialCompactLayout
-        ? size.height * 0.27
-        : (isPhoneLayout ? 120.0 : size.height * 0.22);
-    const tutorialSpotlightSize = 86.0;
-    final tutorialSpotlightPadding =
-        (tutorialSpotlightSize - tutorialControlButtonSize) / 2;
+    final headlineAlignment =
+        tutorialCompactLayout ? const Alignment(0, -0.30) : const Alignment(0, -0.35);
+    final canSubmit = _controller.text.trim().isNotEmpty;
 
-    return Positioned.fill(
-      child: Stack(
-        children: [
-          if (_tutorialStep == 0)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () => setState(() => _tutorialStep = 1),
-                behavior: HitTestBehavior.opaque,
-                child: Align(
-                  alignment: const Alignment(0, -0.45), // 🚀 ここでバランスの良い上部に配置
-                  child: _buildTutorialText(loc.tutorialStep0),
-                ),
-              ),
-            ),
-          if (_tutorialStep == 1)
-            Positioned(
-              top: size.height * 0.35,
-              left: 40,
-              right: 40,
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _controller,
-                    autofocus: true,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 22),
-                    cursorColor: Colors.white,
-                    decoration: InputDecoration(
-                      hintText: loc.tutorialInputHint,
-                      hintStyle: const TextStyle(color: Colors.white38),
-                      enabledBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white38)),
-                      focusedBorder: const UnderlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white)),
-                    ),
-                    onChanged: (value) => _inputText = value,
-                    onSubmitted: (val) async {
-                      if (val.isEmpty) return;
-                      HapticFeedback.lightImpact();
-                      setState(() {
-                        _resetTutorialStarPosition();
-                        _tutorialStarColor = Colors.white;
-                        _tutorialStep = 2;
-                      });
-
-                      await Future.delayed(const Duration(seconds: 1));
-                      if (!mounted) return;
-                      setState(() => _tutorialStep = 3);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    loc.tutorialPressEnter,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          if (_tutorialStep == 2)
-            Align(
-                alignment: const Alignment(0, -0.45),
-                child: _buildTutorialText(loc.tutorialStep2)),
-          if (_tutorialStep == 3 && !_isDragging)
-            Align(
-                alignment: tutorialStep3TextAlignment,
-                child: _buildTutorialText(loc.tutorialStep3)),
-          if (_isDragging)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: tutorialDragHintsTop,
-              child: IgnorePointer(
-                child: Center(
-                  child: SizedBox(
-                    width: 340,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          loc.tutorialFuture,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.blue,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Text(
-                              loc.tutorialEmotion,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.pink,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              loc.tutorialAction,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.yellow,
-                                fontSize: 19,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          loc.tutorialPast,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.purple,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (_tutorialStep == 4)
-            Align(
-                alignment: const Alignment(0, -0.45),
-                child: _buildTutorialText(loc.tutorialStep4)),
-          if (_tutorialStep == 5)
-            Align(
-                alignment: const Alignment(0, -0.45),
-                child: _buildTutorialText(loc.tutorialStep5)),
-          if (_tutorialStep >= 3)
-            Positioned(
-              left: _tutorialStar.dx - 48,
-              top: _tutorialStar.dy -
-                  48 -
-                  (_isDragging ? _tutorialDragVisualYOffset : 0),
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onPanStart: (details) {
-                  setState(() {
-                    _isDragging = true;
-                    // Keep drag behavior consistent with regular stars.
-                    _tutorialDragTouchOffset =
-                        const Offset(20, 20) - details.localPosition;
-                  });
-                },
-                onPanUpdate: (details) {
-                  setState(() {
-                    final renderBox = context.findRenderObject() as RenderBox?;
-                    if (renderBox != null && _tutorialDragTouchOffset != null) {
-                      final localTouch =
-                          renderBox.globalToLocal(details.globalPosition);
-                      _tutorialStar = localTouch + _tutorialDragTouchOffset!;
-                    } else {
-                      _tutorialStar += details.delta;
-                    }
-                    if (details.delta.dx.abs() >= details.delta.dy.abs()) {
-                      _tutorialStarColor =
-                          details.delta.dx >= 0 ? Colors.yellow : Colors.pink;
-                    } else {
-                      _tutorialStarColor =
-                          details.delta.dy >= 0 ? Colors.purple : Colors.blue;
-                    }
-                  });
-                },
-                onPanEnd: (_) async {
-                  setState(() {
-                    _isDragging = false;
-                    _tutorialDragTouchOffset = null;
-                  });
-                  await _createThoughtFromTutorial();
-                  if (!mounted) return;
-                  setState(() => _tutorialStep = 4);
-                  await Future.delayed(const Duration(seconds: 2));
-                  if (!mounted) return;
-                  setState(() => _tutorialStep = 5);
-                  await Future.delayed(const Duration(seconds: 2));
-                  if (!mounted) return;
-
-                  setState(() => _tutorialStep = 6);
-                },
-                child: SizedBox(
-                  width: 96,
-                  height: 96,
-                  child: Center(
-                    child: AnimatedScale(
-                      scale: _isDragging ? 1.5 : 1.0,
-                      duration: const Duration(milliseconds: 150),
-                      child:
-                          Icon(Icons.star, color: _tutorialStarColor, size: 40),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (_tutorialStep == 6)
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _tutorialStep = 7),
-                child: Stack(
+    if (_tutorialStep == 0) {
+      return Positioned.fill(
+        child: Column(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: headlineAlignment,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Align(
-                      alignment: const Alignment(0, -0.45),
-                      child: _buildTutorialText(loc.tutorialStep6),
-                    ),
-                    Positioned(
-                      right: 16 - tutorialSpotlightPadding,
-                      bottom: tutorialBottomControlOffset -
-                          tutorialSpotlightPadding,
-                      child: IgnorePointer(
-                        child: Container(
-                          width: tutorialSpotlightSize,
-                          height: tutorialSpotlightSize,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.65),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withValues(alpha: 0.28),
-                                blurRadius: 16,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+                    _buildTutorialText(loc.onboardingInputHeadline),
+                    const SizedBox(height: 8),
+                    _buildTutorialSublineText(loc.onboardingInputSubline),
                   ],
                 ),
               ),
             ),
-          if (_tutorialStep == 7)
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () async {
-                  await Hive.box('settings').put('tutorialDone', true);
-                  if (!mounted) return;
-                  setState(() => _tutorialStep = _tutorialInteractiveStep);
-                },
-                child: Align(
-                  alignment: const Alignment(0, -0.12),
-                  child: Container(
-                    width: min(size.width - 40, 360.0),
-                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D1730).withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.15),
+            Padding(
+              padding: EdgeInsets.fromLTRB(40, 0, 40, size.height * 0.22),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _controller,
+                    autofocus: true,
+                    maxLength: AppConstants.defaultTextLimit,
+                    textInputAction: TextInputAction.done,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 22),
+                    cursorColor: Colors.white,
+                    decoration: InputDecoration(
+                      hintText: loc.onboardingInputHint,
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      counterText: '',
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white38),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.35),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                      focusedBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white),
+                      ),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.insights,
-                          color: Colors.lightBlueAccent,
-                          size: 30,
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          loc.tutorialStep7Title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          loc.tutorialStep7Body,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            height: 1.45,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Container(
-                          height: 246,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF1A2E57),
-                                Color(0xFF0E1730),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.14),
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _TutorialWeeklyPreviewPainter(),
-                                ),
-                              ),
-                              Positioned(
-                                left: 78,
-                                right: 12,
-                                top: 8,
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      loc.weekdayMonShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdayTueShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdayWedShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdayThuShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdayFriShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdaySatShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.weekdaySunShort,
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.42),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 28,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      loc.categoryFuture,
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.starsCount(100),
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.34),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 64,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      loc.categoryEmotion,
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.starsCount(100),
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.34),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 100,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      loc.categoryAction,
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.starsCount(100),
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.34),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 136,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      loc.categoryPast,
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.starsCount(100),
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.34),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Positioned(
-                                left: 8,
-                                top: 172,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      loc.categoryUncategorized,
-                                      style: TextStyle(
-                                        color:
-                                            Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                    Text(
-                                      loc.starsCount(100),
-                                      style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.34),
-                                        fontSize: 9,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildTutorialWeeklyMetricCard(
-                                title: loc.weeklyDensity,
-                                value: '100%',
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildTutorialWeeklyMetricCard(
-                                title: loc.weeklyInsightsLabel,
-                                value: loc.starsCount(100),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildTutorialWeeklyMetricCard(
-                                title: loc.weeklyActionsLabel,
-                                value: loc.starsCount(100),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (_) => unawaited(_submitOnboardingInput()),
+                  ),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: canSubmit
+                        ? () => unawaited(_submitOnboardingInput())
+                        : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      disabledForegroundColor: Colors.white38,
+                      backgroundColor: Colors.white.withValues(alpha: 0.12),
+                      disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                    ),
+                    child: Text(loc.onboardingSubmitButton),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final beatText = _onboardingBeatText(loc);
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => unawaited(_completeOnboarding()),
+        child: Stack(
+          children: [
+            if (_onboardingBeat >= 2)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: _onboardingBeat >= 2 ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    child: CustomPaint(
+                      painter: _OnboardingConstellationSilhouettePainter(),
                     ),
                   ),
                 ),
               ),
+            Align(
+              alignment: const Alignment(0, -0.45),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: _buildTutorialText(
+                  beatText,
+                  key: ValueKey<int>(_onboardingBeat),
+                ),
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1181,51 +929,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (!mounted) return;
   }
 
-  Widget _buildTutorialWeeklyMetricCard({
-    required String title,
-    required String value,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1B2F52),
-            Color(0xFF111C36),
-          ],
-        ),
-        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontSize: 10,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF9CF8FF),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _openWeeklyGalaxy() async {
     HapticFeedback.selectionClick();
     await Navigator.push<void>(
@@ -1235,11 +938,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _openSettings() async {
-    await Navigator.push<void>(
+    final thoughtsReplaced = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const SettingsScreen()),
     );
     if (!mounted) return;
+    if (thoughtsReplaced == true) {
+      await _reloadThoughtsFromHive();
+    }
   }
 
   Future<void> _openPrivacyPolicy() async {
@@ -1692,13 +1398,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final maxY = max(margin, size.height - margin);
     const goldenAngleRad = 137.5 * (pi / 180);
     const minRadius = 44.0;
-    final maxRadius = (min(size.width, size.height) * 0.38).clamp(90.0, 260.0);
+    final crowded = _thoughts.length >= 8;
+    final maxRadius = crowded
+        ? (min(size.width, size.height) * 0.30).clamp(80.0, 170.0)
+        : (min(size.width, size.height) * 0.38).clamp(90.0, 260.0);
     final seed = max(1, _thoughtIdCounter);
 
     for (int attempt = 0; attempt < 28; attempt++) {
       final index = seed + attempt;
       final angle = index * goldenAngleRad;
-      final ringT = (index % 14) / 13;
+      final ringT = crowded
+          ? (index % 8) / 7 * 0.58
+          : (index % 14) / 13;
       final distance = minRadius + (maxRadius - minRadius) * ringT;
       final candidate = Offset(
         (center.dx + cos(angle) * distance).clamp(minX, maxX).toDouble(),
@@ -2204,8 +1915,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     // 赤バッジは「候補件数」ではなく「本日あと何回発火できるか」を表示する。
     final now = DateTime.now();
     final revisitCandidates = _reflectionCandidates(now);
-    final revisitCount =
-        revisitCandidates.isEmpty ? 0 : _remainingReflectionQuota(now);
+    final revisitCount = kForceRevisitDebug && _thoughts.isNotEmpty
+        ? 1
+        : (revisitCandidates.isEmpty ? 0 : _remainingReflectionQuota(now));
 
     final size = MediaQuery.of(context).size;
     final viewPadding = MediaQuery.of(context).viewPadding;
@@ -2295,13 +2007,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Center(
                 child: GestureDetector(
                   onTap: () {
-                    if (revisitCount > 0) {
+                    if (_constellationFormed) {
+                      _openConstellationRevisit();
+                      return;
+                    }
+                    if (revisitCount > 0 || _isConstellationAnimating) {
                       _startRevisitEvent();
                     }
                   },
                   child: CentralStar(
                     thoughtCount: _thoughts.length,
-                    flash: _flashCenter,
+                    flash: _flashCenter || _constellationFormed,
                     revisitCount: revisitCount,
                   ),
                 ),
@@ -2311,7 +2027,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             if (_isObservationMode)
               ..._buildObservationStars(size)
             else
-              ..._thoughts.map((thought) => ThoughtStar(
+              ..._thoughts.map((thought) {
+                final isMember = _activeConstellation.any((t) => t.id == thought.id);
+                final isCandidate = revisitCandidates.contains(thought);
+                final isMain = _constellationMain?.id == thought.id;
+                return ThoughtStar(
                     thought: thought,
                     x: thought.dx,
                     y: thought.dy,
@@ -2323,12 +2043,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     blackHolePosition: _deleteHolePosition,
                     onDragEnd: () => _checkBlackHoleSuckIn(thought),
                     revisitPosition: _revisitCenterPosition,
-                    isTarget: revisitCandidates.contains(thought),
+                    isTarget: isMember || (!_constellationFormed && isCandidate),
+                    isConstellationMain: isMain && _constellationFormed,
+                    isFirstMagnitude:
+                        _constellationFormed && _activeConstellation.length == 1 && isMember,
+                    formationTarget: _constellationFormationTargets[thought.id],
+                    isNewlySpawned: thought.id == _spawnHighlightThoughtId,
                     suppressDetailPopup:
                         _tutorialStep < _tutorialInteractiveStep ||
                             _isObservationMode,
-                    interactionEnabled:
-                        _tutorialStep >= _tutorialInteractiveStep,
+                    interactionEnabled: _tutorialStep >= _tutorialInteractiveStep &&
+                        !_isConstellationAnimating &&
+                        !( _constellationFormed && isMember),
                     onThoughtPersisted: () => setState(() {}),
                     onThoughtRemovedFromHive: () => setState(() {
                       _thoughts.remove(thought);
@@ -2337,15 +2063,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     }),
                     onCategoryChanged: (newCategory) async {
                       setState(() {
-                        // 1. 画面上の星のデータを更新
                         thought.category = newCategory;
-                        if (_tutorialStep < _tutorialInteractiveStep) {
-                          _tutorialStarColor = _getCategoryColor(newCategory);
-                        }
                       });
                       if (thought.isInBox) {
                         await thought.save();
-                        // 3. 念のため全体保存も走らせる
                         _persistAllThoughts();
                       }
 
@@ -2353,14 +2074,51 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     },
                     onPositionChanged: (newOffset) {
                       setState(() {
-                        // 🚀 ここでリスト内のデータの座標を常に最新にする
                         thought.dx = newOffset.dx;
                         thought.dy = newOffset.dy;
                       });
                     },
-                    onTap: (t) => _showThoughtDetail(t),
+                    onTap: (t) {
+                      if (_constellationFormed && isMember) {
+                        _openConstellationRevisit();
+                        return;
+                      }
+                      _editThought(t);
+                    },
                     onLongPress: () {},
-                  )),
+                  );
+              }),
+
+            if (_showConstellationLines && _activeConstellation.isNotEmpty)
+              Positioned.fill(
+                child: ConstellationLinesOverlay(
+                  hub: _revisitCenterPosition,
+                  memberPositions: _activeConstellation
+                      .map((t) => Offset(t.dx, t.dy))
+                      .toList(),
+                  onLineConnected: _onConstellationLineConnected,
+                  onComplete: _onConstellationLinesComplete,
+                ),
+              ),
+
+            if (_constellationFormed && (_constellationName ?? '').isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                top: max(24.0, _revisitCenterPosition.dy - 178),
+                child: IgnorePointer(
+                  child: Text(
+                    _constellationName!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 15,
+                      letterSpacing: 2.4,
+                      fontWeight: FontWeight.w300,
+                    ),
+                  ),
+                ),
+              ),
 
             if (_tutorialStep >= _tutorialInteractiveStep)
               Positioned(
@@ -2461,7 +2219,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-            if (_tutorialStep >= 6 && !_isObservationMode)
+            if (_tutorialStep >= _tutorialInteractiveStep && !_isObservationMode)
               Positioned(
                 right: 16,
                 bottom: bottomControlOffset,
@@ -2638,97 +2396,34 @@ class _MeteorShowerPainter extends CustomPainter {
   }
 }
 
-class _TutorialWeeklyPreviewPainter extends CustomPainter {
-  static const _laneColors = <Color>[
-    Color(0xFF87DFFF),
-    Color(0xFFFFA3E2),
-    Color(0xFFFFE89C),
-    Color(0xFFE1B2FF),
-    Color(0xFFF2F6FF),
-  ];
-
+class _OnboardingConstellationSilhouettePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    const left = 74.0;
-    final right = size.width - 10;
-    final laneHeight = (size.height - 42) / 5;
+    final center = Offset(size.width * 0.5, size.height * 0.42);
+    const radius = 72.0;
+    final points = <Offset>[
+      center + const Offset(0, -radius),
+      center + Offset(radius, 0),
+      center + const Offset(0, radius),
+      center + Offset(-radius, 0),
+    ];
 
-    for (var lane = 0; lane < 5; lane++) {
-      final y = 24 + lane * laneHeight + laneHeight * 0.45;
-      final color = _laneColors[lane];
-      final phase = lane * 0.6;
-      final path = Path()..moveTo(left, y);
-      if (lane == 0 || lane == 4) {
-        path.cubicTo(
-          size.width * 0.34,
-          y - 1.4,
-          size.width * 0.65,
-          y + 1.4,
-          right,
-          y + 0.4,
-        );
-      } else if (lane == 1) {
-        path.cubicTo(
-          size.width * 0.30,
-          y + 22,
-          size.width * 0.66,
-          y - 20,
-          right,
-          y + 6,
-        );
-      } else if (lane == 2) {
-        path.cubicTo(
-          size.width * 0.30,
-          y - 10,
-          size.width * 0.64,
-          y + 11,
-          right,
-          y + 1.5,
-        );
-      } else {
-        path.cubicTo(
-          size.width * 0.30,
-          y - 16,
-          size.width * 0.66,
-          y + 19,
-          right,
-          y - 7,
-        );
-      }
-
-      final glowPaint = Paint()
-        ..color = color.withValues(alpha: 0.42)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = lane == 2 ? 4.8 : 4.2
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-      final corePaint = Paint()
-        ..color = color.withValues(alpha: 0.92)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = lane == 2 ? 2.2 : 1.9
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.3);
-      canvas.drawPath(path, glowPaint);
-      canvas.drawPath(path, corePaint);
-
-      for (var i = 0; i < 138; i++) {
-        final t = i / 137;
-        final x = lerpDouble(left, right, t)!;
-        final wave =
-            sin((t * pi * 2.4) + phase) * (lane == 0 || lane == 4 ? 1.0 : 2.6);
-        final micro = sin((t * pi * 12.0) + phase * 2.1) * 1.4;
-        final py = y + wave + micro;
-        final twinkle = ((sin((i + 1) * 1.7 + lane) + 1) / 2);
-        final radius = 0.7 + (twinkle * 0.9);
-        final pointPaint = Paint()
-          ..color = color.withValues(alpha: 0.55 + twinkle * 0.4)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8)
-          ..blendMode = BlendMode.plus;
-        canvas.drawCircle(Offset(x, py), radius, pointPaint);
-      }
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.18)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    for (final point in points) {
+      canvas.drawLine(center, point, linePaint);
     }
+
+    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.22);
+    for (final point in points) {
+      canvas.drawCircle(point, 3, dotPaint);
+    }
+    canvas.drawCircle(center, 4, dotPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _TutorialWeeklyPreviewPainter oldDelegate) =>
+  bool shouldRepaint(covariant _OnboardingConstellationSilhouettePainter oldDelegate) =>
       false;
 }

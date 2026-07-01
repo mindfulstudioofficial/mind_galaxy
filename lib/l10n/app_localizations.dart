@@ -101,37 +101,43 @@ abstract class AppLocalizations {
   /// No description provided for @simpleMode.
   ///
   /// In en, this message translates to:
-  /// **'Simple Input'**
+  /// **'Quick entry'**
   String get simpleMode;
 
   /// No description provided for @bulkMode.
   ///
   /// In en, this message translates to:
-  /// **'Bulk Input'**
+  /// **'Full entry'**
   String get bulkMode;
 
   /// No description provided for @inputHint.
   ///
   /// In en, this message translates to:
-  /// **'Give your thoughts a voice... (e.g.) Tonight, I noticed the stars.'**
+  /// **'(e.g.) The night sky was clear today.'**
   String get inputHint;
 
   /// No description provided for @insightHint.
   ///
   /// In en, this message translates to:
-  /// **'Insights & Takeaways (e.g.) Small shifts can change everything.'**
+  /// **'(e.g.) The stars were easy to see.'**
   String get insightHint;
 
   /// No description provided for @actionHint.
   ///
   /// In en, this message translates to:
-  /// **'Action (small steps are enough)'**
+  /// **'(e.g.) Count one star before bed.'**
   String get actionHint;
+
+  /// No description provided for @homeTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get homeTooltip;
 
   /// No description provided for @saveThought.
   ///
   /// In en, this message translates to:
-  /// **'⭐ Save Thought'**
+  /// **'⭐ Release Star to the Galaxy'**
   String get saveThought;
 
   /// No description provided for @adSpace.
@@ -164,12 +170,6 @@ abstract class AppLocalizations {
   /// **'Delete Thought'**
   String get deleteThought;
 
-  /// No description provided for @revisitTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Revisit Thoughts'**
-  String get revisitTitle;
-
   /// No description provided for @weeklyGalaxy.
   ///
   /// In en, this message translates to:
@@ -179,25 +179,25 @@ abstract class AppLocalizations {
   /// No description provided for @revisitPromptAddAction.
   ///
   /// In en, this message translates to:
-  /// **'Would you like to take this one step now?'**
+  /// **'Would you like to take this step now?'**
   String get revisitPromptAddAction;
 
   /// No description provided for @revisitPromptAddInsight.
   ///
   /// In en, this message translates to:
-  /// **'Would you like to add a new insight to this thought?'**
+  /// **'Would you like to add a new insight?'**
   String get revisitPromptAddInsight;
 
   /// No description provided for @revisitPromptReflectTimePassed.
   ///
   /// In en, this message translates to:
-  /// **'Try putting into words what changed over time.'**
+  /// **'Try putting what changed over time into words.'**
   String get revisitPromptReflectTimePassed;
 
   /// No description provided for @revisitPromptDeepen.
   ///
   /// In en, this message translates to:
-  /// **'Would you like to deepen this thought from your current perspective?'**
+  /// **'Would you like to look at this thought again from your current perspective?'**
   String get revisitPromptDeepen;
 
   /// No description provided for @starRevisitTitle.
@@ -205,6 +205,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Revisit a Star'**
   String get starRevisitTitle;
+
+  /// No description provided for @constellationContextHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Stars in this constellation'**
+  String get constellationContextHint;
+
+  /// No description provided for @constellationMainStarLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Star revisited today'**
+  String get constellationMainStarLabel;
+
+  /// No description provided for @constellationContextLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Other stars in this constellation'**
+  String get constellationContextLabel;
 
   /// No description provided for @revisitThoughtLabel.
   ///
@@ -221,7 +239,7 @@ abstract class AppLocalizations {
   /// No description provided for @updateContentButtonLabel.
   ///
   /// In en, this message translates to:
-  /// **'Update content'**
+  /// **'Update thought'**
   String get updateContentButtonLabel;
 
   /// No description provided for @revisitComplete.
@@ -313,6 +331,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'As you add more stars, Weekly Galaxy helps you review patterns.\nTap to begin.'**
   String get tutorialStep7Body;
+
+  /// No description provided for @onboardingInputHeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'What you think becomes a star'**
+  String get onboardingInputHeadline;
+
+  /// No description provided for @onboardingInputSubline.
+  ///
+  /// In en, this message translates to:
+  /// **'Your own galaxy begins here'**
+  String get onboardingInputSubline;
+
+  /// No description provided for @onboardingInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s on your mind right now…'**
+  String get onboardingInputHint;
+
+  /// No description provided for @onboardingSubmitButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Make it a star'**
+  String get onboardingSubmitButton;
+
+  /// No description provided for @onboardingBeat1Born.
+  ///
+  /// In en, this message translates to:
+  /// **'Your words have become light'**
+  String get onboardingBeat1Born;
+
+  /// No description provided for @onboardingBeat2Grow.
+  ///
+  /// In en, this message translates to:
+  /// **'Stars grow with insight and action'**
+  String get onboardingBeat2Grow;
+
+  /// No description provided for @onboardingBeat3Future.
+  ///
+  /// In en, this message translates to:
+  /// **'Each revisit connects your stars—until they form a constellation'**
+  String get onboardingBeat3Future;
+
+  /// No description provided for @onboardingSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save. Please try again.'**
+  String get onboardingSaveFailed;
 
   /// No description provided for @supportDeveloperTitle.
   ///
@@ -665,32 +731,14 @@ abstract class AppLocalizations {
   /// No description provided for @insightLabel.
   ///
   /// In en, this message translates to:
-  /// **'Insight'**
+  /// **'Insight & learning'**
   String get insightLabel;
-
-  /// No description provided for @popupInsightHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Write your learnings and insights...'**
-  String get popupInsightHint;
 
   /// No description provided for @actionLabel.
   ///
   /// In en, this message translates to:
   /// **'Action'**
   String get actionLabel;
-
-  /// No description provided for @popupActionHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Action (small steps are OK)'**
-  String get popupActionHint;
-
-  /// No description provided for @releaseStarToGalaxy.
-  ///
-  /// In en, this message translates to:
-  /// **'Release this star into your galaxy'**
-  String get releaseStarToGalaxy;
 
   /// No description provided for @comingSoonLabel.
   ///
@@ -779,7 +827,7 @@ abstract class AppLocalizations {
   /// No description provided for @weekOfMonthLabel.
   ///
   /// In en, this message translates to:
-  /// **'Week {week}, {month}/{year}'**
+  /// **'Week {week} of {month}/{year}'**
   String weekOfMonthLabel(int year, int month, int week);
 
   /// No description provided for @weeklyPreviousWeekTooltip.
