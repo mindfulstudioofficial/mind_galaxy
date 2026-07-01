@@ -374,6 +374,18 @@ abstract class AppLocalizations {
   /// **'Each revisit connects your stars—until they form a constellation'**
   String get onboardingBeat3Future;
 
+  /// No description provided for @onboardingDragHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag the star to classify it'**
+  String get onboardingDragHint;
+
+  /// No description provided for @onboardingNextButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get onboardingNextButton;
+
   /// No description provided for @onboardingSaveFailed.
   ///
   /// In en, this message translates to:

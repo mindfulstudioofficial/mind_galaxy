@@ -9,6 +9,7 @@ import 'package:hive/hive.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/central_star.dart';
 import '../widgets/thought_star.dart';
+import '../widgets/tutorial_category_compass.dart';
 import '../models/thought.dart';
 import '../utils/constants.dart';
 import '../config/ads_config.dart';
@@ -39,10 +40,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   static const double _observationSpacing = 140.0;
   static const int _meteorMinActive = 1;
   static const int _meteorMaxActive = 3;
-  static const int _tutorialInteractiveStep = 2;
-  static const Duration _onboardingBeat1Duration = Duration(milliseconds: 1400);
-  static const Duration _onboardingBeat2Duration = Duration(milliseconds: 1200);
-  static const Duration _onboardingBeat3Duration = Duration(milliseconds: 1200);
+  static const double _tutorialDragVisualYOffset = 50.0;
+  static const double _tutorialStarSpawnRightOffset = 64.0;
+  static const double _tutorialStarSpawnVerticalOffset = -8.0;
+  static const int _tutorialInteractiveStep = 5;
   final List<Offset> _smallStars = [];
   final Random _random = Random();
   final List<Thought> _thoughts = [];
@@ -75,10 +76,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // オンボーディング管理
   int _tutorialStep = 0;
-  int _onboardingBeat = 0;
+  String? _onboardingDraftContent;
   bool _tutorialCompleting = false;
-  Timer? _onboardingBeatTimer;
   final TextEditingController _controller = TextEditingController();
+  Offset _tutorialStar = Offset.zero;
+  Offset? _tutorialDragTouchOffset;
+  bool _isTutorialDragging = false;
+  Offset _tutorialDragVector = Offset.zero;
+  Color _tutorialStarColor = Colors.white;
+  String? _tutorialDragPreviewCategory;
   final bool _flashCenter = false;
   Timer? _refreshTimer;
   Timer? _meteorSpawnTimer;
@@ -88,6 +94,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _isRewardAdLoading = false;
   bool _isRewardAdShowing = false;
   int _dailyReflectionCount = 0;
+
+  void _resetTutorialStarPosition([Size? size]) {
+    final viewport = size ?? MediaQuery.of(context).size;
+    if (viewport.width <= 0 || viewport.height <= 0) {
+      _tutorialStar = Offset.zero;
+      return;
+    }
+    final centerX = viewport.width * 0.5;
+    final centerY = viewport.height * 0.5;
+    final minX = centerX + 28.0;
+    final maxX = viewport.width - 64.0;
+    final spawnX = maxX < minX
+        ? centerX
+        : (centerX + _tutorialStarSpawnRightOffset)
+            .clamp(minX, maxX)
+            .toDouble();
+
+    final minY = viewport.height * 0.36;
+    final maxY = centerY + 28.0;
+    final spawnY = maxY < minY
+        ? centerY
+        : (centerY + _tutorialStarSpawnVerticalOffset)
+            .clamp(minY, maxY)
+            .toDouble();
+    _tutorialStar = Offset(spawnX, spawnY);
+  }
 
   @override
   void initState() {
@@ -237,7 +269,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _meteorSpawnTimer?.cancel();
     _meteorFrameTimer?.cancel();
     _spawnHighlightTimer?.cancel();
-    _onboardingBeatTimer?.cancel();
     _rewardedAd?.dispose();
     _controller.dispose();
     _observationSearchController.dispose();
@@ -622,25 +653,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
   // 🚀 ここまで追加
 
+  String _colorToCategory(Color color) {
+    if (color == Colors.blue) return 'future';
+    if (color == Colors.purple) return 'past';
+    if (color == Colors.pink) return 'emotion';
+    if (color == Colors.yellow) return 'action';
+    return 'neutral';
+  }
+
+  String? _tutorialCategoryFromDragVector(Offset vector) {
+    const deadZone = 14.0;
+    if (vector.distance < deadZone) return null;
+
+    if (vector.dy.abs() >= vector.dx.abs()) {
+      return vector.dy < 0 ? 'future' : 'past';
+    }
+    return vector.dx >= 0 ? 'action' : 'emotion';
+  }
+
+  Map<String, String> _tutorialCategoryLabels(AppLocalizations loc) {
+    return {
+      'future': loc.categoryFuture,
+      'past': loc.categoryPast,
+      'emotion': loc.categoryEmotion,
+      'action': loc.categoryAction,
+    };
+  }
+
   // --- オンボーディング関連 ---
 
-  Future<void> _createThoughtFromTutorial(String content) async {
-    final size = MediaQuery.of(context).size;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radians = _random.nextDouble() * 2 * pi;
-    const distance = 120.0;
-
-    final dx = center.dx + distance * cos(radians);
-    final dy = center.dy + distance * sin(radians);
+  Future<void> _persistOnboardingThought() async {
+    final content = _onboardingDraftContent?.trim();
+    if (content == null || content.isEmpty) return;
 
     final newThought = Thought(
       id: _thoughtIdCounter++,
-      dx: dx,
-      dy: dy,
+      dx: _tutorialStar.dx,
+      dy: _tutorialStar.dy,
       content: content,
       insight: null,
       action: null,
-      category: 'neutral',
+      category: _colorToCategory(_tutorialStarColor),
       createdAt: DateTime.now(),
       revisitAt: DateTime.now().add(const Duration(days: 1)),
       revisitCount: 1,
@@ -653,7 +706,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final box = Hive.box<Thought>('thoughts');
     await box.add(newThought);
     if (!mounted) return;
-    setState(() => _insertIntoVisibleThoughts(newThought));
+    setState(() {
+      _insertIntoVisibleThoughts(newThought);
+      _onboardingDraftContent = null;
+    });
   }
 
   Future<void> _submitOnboardingInput() async {
@@ -663,37 +719,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticFeedback.lightImpact();
     FocusScope.of(context).unfocus();
 
-    await _createThoughtFromTutorial(content);
-    if (!mounted) return;
-
-    setState(() {
-      _tutorialStep = 1;
-      _onboardingBeat = 0;
-      _tutorialCompleting = false;
-    });
-    _startOnboardingBeatSequence();
+    _onboardingDraftContent = content;
+    _resetTutorialStarPosition();
+    _tutorialStarColor = Colors.white;
+    _tutorialDragVector = Offset.zero;
+    _isTutorialDragging = false;
+    _tutorialDragPreviewCategory = null;
+    setState(() => _tutorialStep = 1);
   }
 
-  void _startOnboardingBeatSequence() {
-    _onboardingBeatTimer?.cancel();
-    _onboardingBeatTimer = Timer(_onboardingBeat1Duration, () {
-      if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
-      setState(() => _onboardingBeat = 1);
-      _onboardingBeatTimer = Timer(_onboardingBeat2Duration, () {
-        if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
-        setState(() => _onboardingBeat = 2);
-        _onboardingBeatTimer = Timer(_onboardingBeat3Duration, () {
-          if (!mounted || _tutorialStep != 1 || _tutorialCompleting) return;
-          unawaited(_completeOnboarding());
-        });
-      });
-    });
+  Future<void> _advanceOnboarding() async {
+    if (_tutorialCompleting) return;
+
+    if (_tutorialStep == 2) {
+      await _persistOnboardingThought();
+      if (!mounted) return;
+      setState(() => _tutorialStep = 3);
+      return;
+    }
+
+    if (_tutorialStep == 4) {
+      await _completeOnboarding();
+      return;
+    }
+
+    if (_tutorialStep < 4) {
+      setState(() => _tutorialStep++);
+    }
   }
 
   Future<void> _completeOnboarding() async {
     if (_tutorialCompleting) return;
     _tutorialCompleting = true;
-    _onboardingBeatTimer?.cancel();
     HapticFeedback.lightImpact();
 
     try {
@@ -716,15 +773,89 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
   }
 
-  String _onboardingBeatText(AppLocalizations loc) {
-    switch (_onboardingBeat) {
-      case 0:
-        return loc.onboardingBeat1Born;
-      case 1:
-        return loc.onboardingBeat2Grow;
-      default:
-        return loc.onboardingBeat3Future;
-    }
+  Widget _buildOnboardingNextButton(
+    AppLocalizations loc, {
+    required VoidCallback onPressed,
+  }) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.white.withValues(alpha: 0.12),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+      ),
+      child: Text(loc.onboardingNextButton),
+    );
+  }
+
+  Widget _buildTutorialStarIcon({required bool draggable}) {
+    return Positioned(
+      left: _tutorialStar.dx - 48,
+      top: _tutorialStar.dy -
+          48 -
+          (_isTutorialDragging ? _tutorialDragVisualYOffset : 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onPanStart: draggable
+            ? (details) {
+                setState(() {
+                  _isTutorialDragging = true;
+                  _tutorialDragVector = Offset.zero;
+                  _tutorialDragPreviewCategory = null;
+                  _tutorialDragTouchOffset =
+                      const Offset(20, 20) - details.localPosition;
+                });
+              }
+            : null,
+        onPanUpdate: draggable
+            ? (details) {
+                setState(() {
+                  final renderBox = context.findRenderObject() as RenderBox?;
+                  if (renderBox != null && _tutorialDragTouchOffset != null) {
+                    final localTouch =
+                        renderBox.globalToLocal(details.globalPosition);
+                    _tutorialStar = localTouch + _tutorialDragTouchOffset!;
+                  } else {
+                    _tutorialStar += details.delta;
+                  }
+                  _tutorialDragVector += details.delta;
+                  final previewCategory =
+                      _tutorialCategoryFromDragVector(_tutorialDragVector);
+                  if (previewCategory != null) {
+                    if (previewCategory != _tutorialDragPreviewCategory) {
+                      _tutorialDragPreviewCategory = previewCategory;
+                      HapticFeedback.selectionClick();
+                    }
+                    _tutorialStarColor = _getCategoryColor(previewCategory);
+                  }
+                });
+              }
+            : null,
+        onPanEnd: draggable
+            ? (_) {
+                setState(() {
+                  _isTutorialDragging = false;
+                  _tutorialDragVector = Offset.zero;
+                  _tutorialDragTouchOffset = null;
+                });
+              }
+            : null,
+        child: SizedBox(
+          width: 96,
+          height: 96,
+          child: Center(
+            child: AnimatedScale(
+              scale: _isTutorialDragging ? 1.5 : 1.0,
+              duration: const Duration(milliseconds: 150),
+              child: Icon(Icons.star, color: _tutorialStarColor, size: 40),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTutorialText(String text, {Key? key}) {
@@ -799,12 +930,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return const SizedBox.shrink();
     }
     final size = MediaQuery.of(context).size;
+    final viewPadding = MediaQuery.of(context).viewPadding;
     final loc = AppLocalizations.of(context)!;
     final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
     final tutorialCompactLayout = isPhoneLayout && size.height <= 760;
     final headlineAlignment =
         tutorialCompactLayout ? const Alignment(0, -0.30) : const Alignment(0, -0.35);
     final canSubmit = _controller.text.trim().isNotEmpty;
+    final tutorialCompassTop =
+        viewPadding.top + (tutorialCompactLayout ? 8.0 : 16.0);
+    final nextButtonBottom = viewPadding.bottom + 24.0;
 
     if (_tutorialStep == 0) {
       return Positioned.fill(
@@ -859,7 +994,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       foregroundColor: Colors.white,
                       disabledForegroundColor: Colors.white38,
                       backgroundColor: Colors.white.withValues(alpha: 0.12),
-                      disabledBackgroundColor: Colors.white.withValues(alpha: 0.05),
+                      disabledBackgroundColor:
+                          Colors.white.withValues(alpha: 0.05),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
                         vertical: 12,
@@ -878,40 +1014,143 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
     }
 
-    final beatText = _onboardingBeatText(loc);
     return Positioned.fill(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => unawaited(_completeOnboarding()),
-        child: Stack(
-          children: [
-            if (_onboardingBeat >= 2)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    opacity: _onboardingBeat >= 2 ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeOut,
-                    child: CustomPaint(
-                      painter: _OnboardingConstellationSilhouettePainter(),
+      child: Stack(
+        children: [
+          if (_tutorialStep == 1)
+            _buildTutorialStarIcon(draggable: false),
+          if (_tutorialStep == 1)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => unawaited(_advanceOnboarding()),
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: const Alignment(0, -0.45),
+                      child: _buildTutorialText(loc.onboardingBeat1Born),
                     ),
-                  ),
-                ),
-              ),
-            Align(
-              alignment: const Alignment(0, -0.45),
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                switchInCurve: Curves.easeOut,
-                switchOutCurve: Curves.easeIn,
-                child: _buildTutorialText(
-                  beatText,
-                  key: ValueKey<int>(_onboardingBeat),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: nextButtonBottom,
+                      child: Center(
+                        child: _buildOnboardingNextButton(
+                          loc,
+                          onPressed: () => unawaited(_advanceOnboarding()),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          if (_tutorialStep == 2)
+            Stack(
+              children: [
+                Positioned(
+                  top: tutorialCompassTop,
+                  left: 20,
+                  right: 20,
+                  child: IgnorePointer(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedOpacity(
+                          opacity: _isTutorialDragging ? 0.38 : 1.0,
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          child: _buildTutorialText(loc.onboardingDragHint),
+                        ),
+                        SizedBox(height: tutorialCompactLayout ? 12 : 18),
+                        TutorialCategoryCompass(
+                          labels: _tutorialCategoryLabels(loc),
+                          colorForCategory: _getCategoryColor,
+                          activeCategory: _tutorialCategoryFromDragVector(
+                            _tutorialDragVector,
+                          ),
+                          isDragging: _isTutorialDragging,
+                          compact: tutorialCompactLayout,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: nextButtonBottom,
+                  child: Center(
+                    child: _buildOnboardingNextButton(
+                      loc,
+                      onPressed: () => unawaited(_advanceOnboarding()),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (_tutorialStep == 2)
+            _buildTutorialStarIcon(draggable: true),
+          if (_tutorialStep == 3)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => unawaited(_advanceOnboarding()),
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: const Alignment(0, -0.45),
+                      child: _buildTutorialText(loc.onboardingBeat2Grow),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: nextButtonBottom,
+                      child: Center(
+                        child: _buildOnboardingNextButton(
+                          loc,
+                          onPressed: () => unawaited(_advanceOnboarding()),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (_tutorialStep == 4)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => unawaited(_advanceOnboarding()),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _OnboardingConstellationSilhouettePainter(),
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: const Alignment(0, -0.45),
+                      child: _buildTutorialText(loc.onboardingBeat3Future),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: nextButtonBottom,
+                      child: Center(
+                        child: _buildOnboardingNextButton(
+                          loc,
+                          onPressed: () => unawaited(_advanceOnboarding()),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

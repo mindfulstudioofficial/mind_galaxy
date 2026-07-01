@@ -147,6 +147,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboardingBeat3Future => '振り返るたび、星はつながり、やがて星座になります';
 
   @override
+  String get onboardingDragHint => '星を動かして、分類してみよう';
+
+  @override
+  String get onboardingNextButton => '次へ';
+
+  @override
   String get onboardingSaveFailed => '保存に失敗しました。もう一度お試しください';
 
   @override

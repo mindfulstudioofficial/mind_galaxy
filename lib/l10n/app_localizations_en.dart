@@ -152,6 +152,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Each revisit connects your stars—until they form a constellation';
 
   @override
+  String get onboardingDragHint => 'Drag the star to classify it';
+
+  @override
+  String get onboardingNextButton => 'Next';
+
+  @override
   String get onboardingSaveFailed => 'Couldn\'t save. Please try again.';
 
   @override

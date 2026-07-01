@@ -46,6 +46,8 @@
   "onboardingBeat1Born": "あなたの言葉が、光になった",
   "onboardingBeat2Grow": "星は、気づきと行動で育っていく",
   "onboardingBeat3Future": "振り返るたび、星はつながり、やがて星座になります",
+  "onboardingDragHint": "星を動かして、分類してみよう",
+  "onboardingNextButton": "次へ",
   "onboardingSaveFailed": "保存に失敗しました。もう一度お試しください",
   "supportDeveloperTitle": "開発者を支援",
   "meteorSupportContent": "広告を見て、12時間流星群を表示しますか？",

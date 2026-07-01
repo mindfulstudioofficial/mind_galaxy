@@ -46,6 +46,8 @@
   "onboardingBeat1Born": "Your words have become light",
   "onboardingBeat2Grow": "Stars grow with insight and action",
   "onboardingBeat3Future": "Each revisit connects your stars—until they form a constellation",
+  "onboardingDragHint": "Drag the star to classify it",
+  "onboardingNextButton": "Next",
   "onboardingSaveFailed": "Couldn't save. Please try again.",
   "supportDeveloperTitle": "Support the Developer",
   "meteorSupportContent": "Watch an ad to unlock a 12-hour meteor shower?",
