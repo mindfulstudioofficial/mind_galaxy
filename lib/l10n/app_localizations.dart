@@ -362,16 +362,10 @@ abstract class AppLocalizations {
   /// **'Your words have become a star'**
   String get onboardingBeat1Born;
 
-  /// No description provided for @onboardingBeat2Revisit.
-  ///
-  /// In en, this message translates to:
-  /// **'You can revisit your stars anytime.\nAs thoughts gather, they connect across your galaxy.'**
-  String get onboardingBeat2Revisit;
-
   /// No description provided for @onboardingBeat3Future.
   ///
   /// In en, this message translates to:
-  /// **'Each revisit connects your stars—until they form a constellation'**
+  /// **'Your thoughts\nwill become a constellation'**
   String get onboardingBeat3Future;
 
   /// No description provided for @onboardingDragHint.
@@ -379,6 +373,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Drag the star to classify it'**
   String get onboardingDragHint;
+
+  /// No description provided for @onboardingWeeklyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Galaxy in a Week'**
+  String get onboardingWeeklyTitle;
+
+  /// No description provided for @onboardingWeeklyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your thoughts\nbecome a galaxy'**
+  String get onboardingWeeklyBody;
+
+  /// No description provided for @onboardingWelcomeHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Your galaxy\nhas begun'**
+  String get onboardingWelcomeHome;
 
   /// No description provided for @onboardingNextButton.
   ///

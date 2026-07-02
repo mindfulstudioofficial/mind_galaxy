@@ -145,15 +145,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingBeat1Born => 'Your words have become a star';
 
   @override
-  String get onboardingBeat2Revisit =>
-      'You can revisit your stars anytime.\nAs thoughts gather, they connect across your galaxy.';
-
-  @override
   String get onboardingBeat3Future =>
-      'Each revisit connects your stars—until they form a constellation';
+      'Your thoughts\nwill become a constellation';
 
   @override
   String get onboardingDragHint => 'Drag the star to classify it';
+
+  @override
+  String get onboardingWeeklyTitle => 'Your Galaxy in a Week';
+
+  @override
+  String get onboardingWeeklyBody => 'Your thoughts\nbecome a galaxy';
+
+  @override
+  String get onboardingWelcomeHome => 'Your galaxy\nhas begun';
 
   @override
   String get onboardingNextButton => 'Next';

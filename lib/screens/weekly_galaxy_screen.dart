@@ -1197,6 +1197,11 @@ class _LabelLayoutSpec {
   });
 }
 
+double _safeClampDouble(double value, double lower, double upper) {
+  if (lower > upper) return (lower + upper) * 0.5;
+  return value.clamp(lower, upper);
+}
+
 class _WeeklyGalaxyLayout {
   static const int _maxConstellationStarsPerCategory = 14;
   final List<_PlottedStar> stars;
@@ -1383,7 +1388,8 @@ class _WeeklyGalaxyLayout {
       required double upperBound,
       required double lowerBound,
     }) {
-      double clampY(double y) => y.clamp(upperBound + 5, lowerBound - 5);
+      double clampY(double y) =>
+          _safeClampDouble(y, upperBound + 5, lowerBound - 5);
 
       switch (category) {
         case 'future':
@@ -1462,10 +1468,16 @@ class _WeeklyGalaxyLayout {
           lowerBound: lowerBound,
         );
         final rnd = Random(t.id * 1315423 + cat.hashCode);
-        final x = (xBase + (rnd.nextDouble() - 0.5) * 12)
-            .clamp(graphLeft + 3, graphLeft + graphWidth - 3);
-        final y = (yBase + (rnd.nextDouble() - 0.5) * halfBand * 0.44)
-            .clamp(upperBound + 3, lowerBound - 3);
+        final x = _safeClampDouble(
+          xBase + (rnd.nextDouble() - 0.5) * 12,
+          graphLeft + 3,
+          graphLeft + graphWidth - 3,
+        );
+        final y = _safeClampDouble(
+          yBase + (rnd.nextDouble() - 0.5) * halfBand * 0.44,
+          upperBound + 3,
+          lowerBound - 3,
+        );
 
         plotted.add(
           _PlottedStar(
@@ -1898,11 +1910,13 @@ class _StatConstellationPainter extends CustomPainter {
   final int count;
   final Color color;
   final bool particleMode;
+  final bool showcaseFullShape;
 
   const _StatConstellationPainter({
     required this.count,
     required this.color,
     required this.particleMode,
+    this.showcaseFullShape = false,
   });
 
   List<Offset> _templatePoints(Size size) {
@@ -1956,6 +1970,7 @@ class _StatConstellationPainter extends CustomPainter {
   }
 
   int _activePointCount(int pointTotal) {
+    if (showcaseFullShape) return pointTotal;
     final safeCount = count.clamp(0, 1100);
     if (safeCount <= 0) return 0;
     final scaled = ((safeCount / 18.0) * pointTotal).ceil();
@@ -1969,7 +1984,9 @@ class _StatConstellationPainter extends CustomPainter {
     if (points.isEmpty) return;
     final activePointCount = _activePointCount(points.length);
     final activeIndices = <int>{for (var i = 0; i < activePointCount; i++) i};
-    final intensity = (count / 18.0).clamp(0.0, 1.0);
+    final intensity = showcaseFullShape
+        ? 1.0
+        : (count / 18.0).clamp(0.0, 1.0);
 
     // Always draw a faint skeleton so shape stays recognizable with low counts.
     for (final segment in segments) {
@@ -2058,7 +2075,8 @@ class _StatConstellationPainter extends CustomPainter {
   bool shouldRepaint(covariant _StatConstellationPainter oldDelegate) {
     return oldDelegate.count != count ||
         oldDelegate.color != color ||
-        oldDelegate.particleMode != particleMode;
+        oldDelegate.particleMode != particleMode ||
+        oldDelegate.showcaseFullShape != showcaseFullShape;
   }
 }
 
@@ -2161,5 +2179,606 @@ class _DensityOrbPainter extends CustomPainter {
     return oldDelegate.progress != progress ||
         oldDelegate.count != count ||
         oldDelegate.color != color;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding weekly galaxy preview (reuses production demo renderer).
+// ---------------------------------------------------------------------------
+
+const List<String> _onboardingWeeklyLayerOrder = <String>[
+  'future',
+  'emotion',
+  'action',
+  'past',
+  'neutral',
+];
+
+const Color _onboardingStatsEmerald = Color(0xFF50E3C2);
+
+List<Thought> weeklyGalaxyOnboardingDemoThoughts() {
+  final now = DateTime.now();
+  final weekStart =
+      now.subtract(Duration(days: now.weekday - DateTime.monday));
+  const specs = <(String category, int count)>[
+    ('future', 7),
+    ('emotion', 8),
+    ('action', 7),
+    ('past', 6),
+    ('neutral', 4),
+  ];
+  var id = 900001;
+  final thoughts = <Thought>[];
+  for (final spec in specs) {
+    for (var i = 0; i < spec.$2; i++) {
+      final dayOffset = ((i * 6.5) / spec.$2).floor().clamp(0, 6);
+      final hour = 7 + ((i * 5) % 15);
+      thoughts.add(
+        Thought(
+          id: id++,
+          dx: 0,
+          dy: 0,
+          content: 'onboarding',
+          category: spec.$1,
+          createdAt: weekStart.add(Duration(days: dayOffset, hours: hour)),
+          insight: i % 3 == 0 ? 'insight' : null,
+          action: spec.$1 == 'action' || i % 4 == 1 ? 'action' : null,
+        ),
+      );
+    }
+  }
+  return thoughts;
+}
+
+_WeeklySummary _onboardingWeeklySummary(List<Thought> thoughts) {
+  final counts = <String, int>{for (final c in _onboardingWeeklyLayerOrder) c: 0};
+  var insightCount = 0;
+  var actionCount = 0;
+  for (final thought in thoughts) {
+    final category = _onboardingClassifyThought(thought);
+    counts[category] = (counts[category] ?? 0) + 1;
+    if (thought.insight != null && thought.insight!.trim().isNotEmpty) {
+      insightCount++;
+    }
+    if (thought.action != null && thought.action!.trim().isNotEmpty) {
+      actionCount++;
+    }
+  }
+  return _WeeklySummary(
+    totalThoughts: thoughts.length,
+    countsByCategory: counts,
+    insightCount: insightCount,
+    actionCount: actionCount,
+  );
+}
+
+String _onboardingClassifyThought(Thought thought) {
+  final normalized = thought.category.toLowerCase().trim();
+  if (_onboardingWeeklyLayerOrder.contains(normalized)) return normalized;
+  if (thought.action != null && thought.action!.trim().isNotEmpty) {
+    return 'action';
+  }
+  if (thought.insight != null && thought.insight!.trim().isNotEmpty) {
+    return 'emotion';
+  }
+  return 'neutral';
+}
+
+Color _onboardingColorForCategory(String category) {
+  switch (category) {
+    case 'future':
+      return const Color(0xFF5CA8FF);
+    case 'emotion':
+      return const Color(0xFFFF79CC);
+    case 'action':
+      return const Color(0xFFFFE066);
+    case 'past':
+      return const Color(0xFFC184FF);
+    case 'neutral':
+      return const Color(0xFFDCE7FF);
+    default:
+      return Colors.white;
+  }
+}
+
+String _onboardingCategoryLabel(AppLocalizations loc, String category) {
+  switch (category) {
+    case 'future':
+      return loc.categoryFuture;
+    case 'emotion':
+      return loc.categoryEmotion;
+    case 'action':
+      return loc.categoryAction;
+    case 'past':
+      return loc.categoryPast;
+    default:
+      return loc.categoryUncategorized;
+  }
+}
+
+int _onboardingWeeklyDensityPercent(int totalThoughts) {
+  const targetThoughtsPerWeek = 28;
+  return ((totalThoughts / targetThoughtsPerWeek) * 100).clamp(0, 100).round();
+}
+
+Widget _weeklyGalaxyStatGraphic({
+  required int count,
+  required Color color,
+  required bool particleMode,
+  double width = 132,
+  double height = 106,
+  bool showcaseFullShape = false,
+}) {
+  return CustomPaint(
+    painter: _StatConstellationPainter(
+      count: count,
+      color: color,
+      particleMode: particleMode,
+      showcaseFullShape: showcaseFullShape,
+    ),
+    child: SizedBox(width: width, height: height),
+  );
+}
+
+/// Compact weekly-galaxy preview for onboarding using the production demo chart.
+class WeeklyGalaxyOnboardingPreview extends StatelessWidget {
+  const WeeklyGalaxyOnboardingPreview({super.key});
+
+  static const _labelSpec = _LabelLayoutSpec(
+    labelColumnWidth: 82,
+    chartLeftGap: 3,
+    chartRightPadding: 6,
+    categoryFontSize: 11.5,
+    countFontSize: 11.5,
+    categoryLetterSpacing: 0.7,
+    countLetterSpacing: 0.7,
+    categoryMaxLines: 1,
+    labelOverlayHeight: 48,
+    labelTopOffset: -15,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    final thoughts = weeklyGalaxyOnboardingDemoThoughts();
+    final summary = _onboardingWeeklySummary(thoughts);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenHeight = MediaQuery.sizeOf(context).height;
+        final totalHeight = constraints.maxHeight.isFinite && constraints.maxHeight > 240
+            ? constraints.maxHeight
+            : (screenHeight * 0.56).clamp(420.0, 540.0);
+        final reportHeight = totalHeight * 0.44;
+        final chartHeight = totalHeight - reportHeight;
+
+        return SizedBox(
+          height: totalHeight,
+          width: double.infinity,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              color: const Color(0xFF04060D),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: chartHeight,
+                    child: LayoutBuilder(
+                      builder: (context, chartConstraints) {
+                        if (chartConstraints.maxHeight < 140 ||
+                            chartConstraints.maxWidth < 100) {
+                          return const SizedBox.shrink();
+                        }
+                        final chartLeftInset =
+                            _labelSpec.labelColumnWidth + _labelSpec.chartLeftGap;
+                        final layout = _WeeklyGalaxyLayout.build(
+                          thoughts: thoughts,
+                          categoryResolver: _onboardingClassifyThought,
+                          layerOrder: _onboardingWeeklyLayerOrder,
+                          width: chartConstraints.maxWidth,
+                          height: chartConstraints.maxHeight,
+                          leftInset: chartLeftInset,
+                          rightInset: _labelSpec.chartRightPadding,
+                          colorForCategory: _onboardingColorForCategory,
+                          isDemoMode: true,
+                        );
+                        return Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _WeeklyGalaxyPainter(layout: layout),
+                              ),
+                            ),
+                            Positioned(
+                              left: chartLeftInset,
+                              right: _labelSpec.chartRightPadding,
+                              top: 10,
+                              child: Row(
+                                children: List<Widget>.generate(
+                                  7,
+                                  (index) => Expanded(
+                                    child: Align(
+                                      child: Text(
+                                        [
+                                          loc.weekdayMonShort,
+                                          loc.weekdayTueShort,
+                                          loc.weekdayWedShort,
+                                          loc.weekdayThuShort,
+                                          loc.weekdayFriShort,
+                                          loc.weekdaySatShort,
+                                          loc.weekdaySunShort,
+                                        ][index],
+                                        style: TextStyle(
+                                          color:
+                                              Colors.white.withValues(alpha: 0.45),
+                                          fontSize: 11,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            ...layout.layerY.entries.map((entry) {
+                              final categoryCount =
+                                  summary.countsByCategory[entry.key] ?? 0;
+                              final categoryColor =
+                                  _onboardingColorForCategory(entry.key);
+                              return Positioned(
+                                left: 10,
+                                width: _labelSpec.labelColumnWidth - 10,
+                                top: entry.value + _labelSpec.labelTopOffset,
+                                child: IgnorePointer(
+                                  child: Stack(
+                                    children: [
+                                      Positioned(
+                                        left: -2,
+                                        top: -7,
+                                        child: Container(
+                                          width: _labelSpec.labelColumnWidth + 12,
+                                          height: _labelSpec.labelOverlayHeight,
+                                          decoration: const BoxDecoration(
+                                            gradient: RadialGradient(
+                                              center: Alignment(-0.75, -0.08),
+                                              radius: 0.92,
+                                              colors: [
+                                                Color(0x50000000),
+                                                Color(0x20000000),
+                                                Color(0x00000000),
+                                              ],
+                                              stops: [0.0, 0.62, 1.0],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            _onboardingCategoryLabel(loc, entry.key),
+                                            maxLines: _labelSpec.categoryMaxLines,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: categoryColor.withValues(
+                                                  alpha: 0.78),
+                                              fontSize: _labelSpec.categoryFontSize,
+                                              fontWeight: FontWeight.w300,
+                                              letterSpacing:
+                                                  _labelSpec.categoryLetterSpacing,
+                                            ),
+                                          ),
+                                          Text(
+                                            loc.starsCount(categoryCount),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: categoryColor.withValues(
+                                                  alpha: 0.58),
+                                              fontSize: _labelSpec.countFontSize,
+                                              fontWeight: FontWeight.w300,
+                                              letterSpacing:
+                                                  _labelSpec.countLetterSpacing,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    height: reportHeight,
+                    child: _OnboardingWeeklyReportStrip(
+                      summary: summary,
+                      loc: loc,
+                      compact: reportHeight < 210,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OnboardingWeeklyReportStrip extends StatelessWidget {
+  final _WeeklySummary summary;
+  final AppLocalizations loc;
+  final bool compact;
+
+  const _OnboardingWeeklyReportStrip({
+    required this.summary,
+    required this.loc,
+    this.compact = false,
+  });
+
+  Widget _fitStatLabel(
+    String text, {
+    required FontWeight fontWeight,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.72),
+          fontSize: compact ? 9 : 11,
+          letterSpacing: compact ? 0.4 : 2.4,
+          fontWeight: fontWeight,
+        ),
+      ),
+    );
+  }
+
+  Widget _fitStatValue(String text) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        style: TextStyle(
+          color: _onboardingStatsEmerald.withValues(alpha: 0.78),
+          fontSize: compact ? 12 : 14,
+          letterSpacing: compact ? 0.4 : 1.2,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final densityPercent = _onboardingWeeklyDensityPercent(summary.totalThoughts);
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF090E19),
+        border: Border(
+          top: BorderSide(
+            color: Colors.white.withValues(alpha: 0.12),
+            width: 0.8,
+          ),
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 8 : 12,
+        compact ? 8 : 10,
+        compact ? 8 : 12,
+        compact ? 8 : 10,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loc.weeklyAnalysis,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: compact ? 10 : 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 2.4,
+            ),
+          ),
+          SizedBox(height: compact ? 6 : 8),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _onboardingDensityCard(
+                    densityPercent: densityPercent,
+                    count: summary.totalThoughts,
+                  ),
+                ),
+                SizedBox(width: compact ? 6 : 10),
+                Expanded(
+                  child: _onboardingStatCard(
+                    count: summary.insightCount,
+                    label: loc.weeklyInsightsLabel,
+                    particleMode: false,
+                  ),
+                ),
+                SizedBox(width: compact ? 6 : 10),
+                Expanded(
+                  child: _onboardingStatCard(
+                    count: summary.actionCount,
+                    label: loc.weeklyActionsLabel,
+                    particleMode: true,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _onboardingDensityCard({
+    required int densityPercent,
+    required int count,
+  }) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 6 : 8,
+        compact ? 6 : 8,
+        compact ? 6 : 8,
+        compact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF101624), Color(0xFF151E30), Color(0xFF0E1522)],
+        ),
+        border: Border.all(
+          color: _onboardingStatsEmerald.withValues(alpha: 0.38),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _onboardingStatsEmerald.withValues(alpha: 0.12),
+            blurRadius: 12,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _CardStarDustPainter(
+                  color: _onboardingStatsEmerald.withValues(alpha: 0.22),
+                  seed: count + 21,
+                ),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Transform.scale(
+                    scale: compact ? 1.12 : 1.28,
+                    child: SizedBox(
+                      width: compact ? 74 : 102,
+                      height: compact ? 74 : 102,
+                      child: _WeeklyDensityOrb(
+                        count: count,
+                        color: _onboardingStatsEmerald,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 10 : 14),
+              _fitStatLabel(
+                loc.weeklyDensity,
+                fontWeight: FontWeight.w400,
+              ),
+              const SizedBox(height: 5),
+              _fitStatValue('$densityPercent%'),
+              SizedBox(height: compact ? 6 : 10),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _onboardingStatCard({
+    required int count,
+    required String label,
+    required bool particleMode,
+  }) {
+    final paintW = compact ? 108.0 : 132.0;
+    final paintH = compact ? 82.0 : 106.0;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        compact ? 6 : 8,
+        compact ? 6 : 8,
+        compact ? 6 : 8,
+        compact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF101624), Color(0xFF172336), Color(0xFF0E1522)],
+        ),
+        border: Border.all(
+          color: _onboardingStatsEmerald.withValues(alpha: 0.45),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _onboardingStatsEmerald.withValues(alpha: 0.14),
+            blurRadius: 12,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _CardStarDustPainter(
+                  color: _onboardingStatsEmerald.withValues(alpha: 0.24),
+                  seed: count + (particleMode ? 91 : 47),
+                ),
+              ),
+            ),
+          ),
+          Column(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: const Alignment(0, -0.1),
+                  child: Transform.scale(
+                    scale: compact ? 1.45 : 1.62,
+                    child: _weeklyGalaxyStatGraphic(
+                      count: count,
+                      color: _onboardingStatsEmerald,
+                      particleMode: particleMode,
+                      width: paintW,
+                      height: paintH,
+                      showcaseFullShape: true,
+                    ),
+                  ),
+                ),
+              ),
+              _fitStatLabel(label, fontWeight: FontWeight.w500),
+              const SizedBox(height: 4),
+              _fitStatValue(loc.starsCount(count)),
+              SizedBox(height: compact ? 6 : 10),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

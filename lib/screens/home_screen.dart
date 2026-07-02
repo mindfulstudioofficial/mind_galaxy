@@ -20,6 +20,7 @@ import '../utils/revisit_prompt.dart';
 import '../utils/constellation_layout.dart';
 import '../utils/constellation_naming.dart';
 import '../widgets/constellation_lines_overlay.dart';
+import '../widgets/onboarding/welcome_overlay.dart';
 import '../overlays/thought_popup.dart';
 import 'input_screen.dart';
 import 'settings_screen.dart';
@@ -86,9 +87,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Color _tutorialStarColor = Colors.white;
   String? _tutorialDragPreviewCategory;
   bool _onboardingConstellationDemo = false;
-  bool _onboardingStep4MessageVisible = false;
+  bool _onboardingConstellationMessageVisible = false;
   List<Offset> _onboardingDemoGhostSlots = const [];
   List<Offset> _onboardingDemoAllSlots = const [];
+  bool _showWelcomeOverlay = false;
+  double _welcomeOverlayOpacity = 0;
+  Timer? _welcomeOverlayTimer;
+  late AnimationController _fabGlowController;
+  bool _fabOnboardingGlowActive = false;
   final bool _flashCenter = false;
   Timer? _refreshTimer;
   Timer? _meteorSpawnTimer;
@@ -128,6 +134,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _fabGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
 
     final box = Hive.box<Thought>('thoughts');
     final settingsBox = Hive.box('settings');
@@ -273,6 +283,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _meteorSpawnTimer?.cancel();
     _meteorFrameTimer?.cancel();
     _spawnHighlightTimer?.cancel();
+    _welcomeOverlayTimer?.cancel();
+    _fabGlowController.dispose();
     _rewardedAd?.dispose();
     _controller.dispose();
     _observationSearchController.dispose();
@@ -738,35 +750,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (_tutorialStep == 2) {
       await _persistOnboardingThought();
       if (!mounted) return;
-      setState(() => _tutorialStep = 3);
-      return;
-    }
-
-    if (_tutorialStep == 3) {
       setState(() {
-        _tutorialStep = 4;
-        _onboardingStep4MessageVisible = false;
+        _tutorialStep = 3;
+        _onboardingConstellationMessageVisible = false;
       });
       unawaited(_startOnboardingConstellationDemo());
       return;
     }
 
-    if (_tutorialStep == 4) {
-      if (!_onboardingStep4MessageVisible) return;
+    if (_tutorialStep == 3) {
+      if (!_onboardingConstellationMessageVisible) return;
       _resetOnboardingConstellationDemo();
-      await _completeOnboarding();
+      setState(() => _tutorialStep = 4);
       return;
     }
 
-    if (_tutorialStep < 3) {
+    if (_tutorialStep == 4) {
+      await _finishOnboardingFlow();
+      return;
+    }
+
+    if (_tutorialStep < 2) {
       setState(() => _tutorialStep++);
     }
+  }
+
+  Future<void> _finishOnboardingFlow() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _completeOnboarding();
+    if (!mounted) return;
+    _startWelcomeAndFabGlow();
+  }
+
+  void _startWelcomeAndFabGlow() {
+    _welcomeOverlayTimer?.cancel();
+    setState(() {
+      _showWelcomeOverlay = true;
+      _welcomeOverlayOpacity = 1;
+    });
+    _welcomeOverlayTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      setState(() => _welcomeOverlayOpacity = 0);
+      Timer(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        setState(() => _showWelcomeOverlay = false);
+      });
+    });
+    _startFabOnboardingGlow();
+  }
+
+  void _startFabOnboardingGlow() {
+    if (_fabOnboardingGlowActive) return;
+    _fabOnboardingGlowActive = true;
+    _fabGlowController.forward(from: 0).whenComplete(() {
+      if (!mounted) return;
+      setState(() => _fabOnboardingGlowActive = false);
+    });
   }
 
   Future<void> _startOnboardingConstellationDemo() async {
     if (_isConstellationAnimating || _thoughts.isEmpty) {
       if (mounted) {
-        setState(() => _onboardingStep4MessageVisible = true);
+        setState(() => _onboardingConstellationMessageVisible = true);
       }
       return;
     }
@@ -780,7 +825,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     setState(() {
       _onboardingConstellationDemo = true;
-      _onboardingStep4MessageVisible = false;
+      _onboardingConstellationMessageVisible = false;
       _onboardingDemoAllSlots = slots;
       _onboardingDemoGhostSlots = slots.sublist(1);
       _activeConstellation = [userThought];
@@ -802,7 +847,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticFeedback.lightImpact();
     setState(() {
       _showConstellationLines = false;
-      _onboardingStep4MessageVisible = true;
+      _onboardingConstellationMessageVisible = true;
     });
   }
 
@@ -811,7 +856,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _resetConstellationState();
     setState(() {
       _onboardingConstellationDemo = false;
-      _onboardingStep4MessageVisible = false;
+      _onboardingConstellationMessageVisible = false;
       _onboardingDemoGhostSlots = const [];
       _onboardingDemoAllSlots = const [];
     });
@@ -1003,32 +1048,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final loc = AppLocalizations.of(context)!;
     final isPhoneLayout = size.shortestSide < kTabletBreakpoint;
     final tutorialCompactLayout = isPhoneLayout && size.height <= 760;
-    final headlineAlignment =
-        tutorialCompactLayout ? const Alignment(0, -0.30) : const Alignment(0, -0.35);
     final canSubmit = _controller.text.trim().isNotEmpty;
     final tutorialCompassTop =
         viewPadding.top + (tutorialCompactLayout ? 8.0 : 16.0);
     final nextButtonBottom = viewPadding.bottom + 24.0;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardOpen = keyboardInset > 0;
 
     if (_tutorialStep == 0) {
+      final inputBottom = keyboardOpen
+          ? viewPadding.bottom + 8
+          : viewPadding.bottom + size.height * 0.18;
+
       return Positioned.fill(
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: Align(
-                alignment: headlineAlignment,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildTutorialText(loc.onboardingInputHeadline),
+            Positioned(
+              left: 32,
+              right: 32,
+              top: viewPadding.top + (tutorialCompactLayout ? 12 : 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTutorialText(loc.onboardingInputHeadline),
+                  if (!keyboardOpen) ...[
                     const SizedBox(height: 8),
                     _buildTutorialSublineText(loc.onboardingInputSubline),
                   ],
-                ),
+                ],
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(40, 0, 40, size.height * 0.22),
+            Positioned(
+              left: 40,
+              right: 40,
+              bottom: inputBottom,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1054,7 +1107,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (_) => unawaited(_submitOnboardingInput()),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   TextButton(
                     onPressed: canSubmit
                         ? () => unawaited(_submitOnboardingInput())
@@ -1160,33 +1213,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           if (_tutorialStep == 2)
             _buildTutorialStarIcon(draggable: true),
-          if (_tutorialStep == 3)
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => unawaited(_advanceOnboarding()),
-                child: Stack(
-                  children: [
-                    Align(
-                      alignment: const Alignment(0, -0.45),
-                      child: _buildTutorialText(loc.onboardingBeat2Revisit),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: nextButtonBottom,
-                      child: Center(
-                        child: _buildOnboardingNextButton(
-                          loc,
-                          onPressed: () => unawaited(_advanceOnboarding()),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          if (_tutorialStep == 4 && _onboardingStep4MessageVisible)
+          if (_tutorialStep == 3 && _onboardingConstellationMessageVisible)
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1210,6 +1237,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
+              ),
+            ),
+          if (_tutorialStep == 4)
+            Positioned.fill(
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 20,
+                    right: 20,
+                    top: viewPadding.top + (tutorialCompactLayout ? 8 : 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildTutorialText(loc.onboardingWeeklyTitle),
+                        const SizedBox(height: 6),
+                        _buildTutorialSublineText(loc.onboardingWeeklyBody),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    top: viewPadding.top + (tutorialCompactLayout ? 80 : 88),
+                    bottom: nextButtonBottom + 52,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: const WeeklyGalaxyOnboardingPreview(),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: nextButtonBottom,
+                    child: Center(
+                      child: _buildOnboardingNextButton(
+                        loc,
+                        onPressed: () => unawaited(_advanceOnboarding()),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -1542,6 +1610,48 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _meteorTrails.add(trail);
     });
     _ensureMeteorFrameLoop();
+  }
+
+  Widget _buildFabWithOnboardingGlow({
+    required double size,
+    required double iconSize,
+  }) {
+    return AnimatedBuilder(
+      animation: _fabGlowController,
+      builder: (context, child) {
+        final t = _fabGlowController.value;
+        final pulse = _fabOnboardingGlowActive
+            ? (sin(t * pi * 3) * 0.5 + 0.5) * (1.0 - t * 0.25)
+            : 0.0;
+        return Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: pulse > 0.04
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.28 * pulse),
+                      blurRadius: 14 + 10 * pulse,
+                      spreadRadius: 1 + 3 * pulse,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF9CF8FF)
+                          .withValues(alpha: 0.18 * pulse),
+                      blurRadius: 22 + 8 * pulse,
+                      spreadRadius: 2 * pulse,
+                    ),
+                  ]
+                : null,
+          ),
+          child: child,
+        );
+      },
+      child: _buildRoundSpaceButton(
+        icon: Icons.add,
+        onTap: _openFabInput,
+        size: size,
+        iconSize: iconSize,
+      ),
+    );
   }
 
   Widget _buildRoundSpaceButton({
@@ -2237,6 +2347,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: true,
       drawer: _buildMainDrawer(),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -2250,6 +2361,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               }
             : null,
         child: Stack(
+          clipBehavior: Clip.hardEdge,
           children: [
             ..._smallStars.map((star) => Positioned(
                   left: star.dx,
@@ -2545,11 +2657,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               Positioned(
                 right: 16,
                 bottom: bottomControlOffset,
-                child: _buildRoundSpaceButton(
-                  icon: Icons.add,
-                  onTap: _openFabInput,
+                child: _buildFabWithOnboardingGlow(
                   size: controlButtonSize,
                   iconSize: controlIconSize,
+                ),
+              ),
+
+            if (_showWelcomeOverlay && _tutorialStep >= _tutorialInteractiveStep)
+              Positioned.fill(
+                child: OnboardingWelcomeOverlay(
+                  message: AppLocalizations.of(context)!.onboardingWelcomeHome,
+                  opacity: _welcomeOverlayOpacity,
                 ),
               ),
 

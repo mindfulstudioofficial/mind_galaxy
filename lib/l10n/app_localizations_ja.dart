@@ -141,13 +141,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboardingBeat1Born => 'あなたの言葉が、星になった';
 
   @override
-  String get onboardingBeat2Revisit => 'あとから何度でも振り返れます。\n思考が重なると、星はつながっていきます';
+  String get onboardingBeat3Future => '思考は\nやがて星座になる';
 
   @override
-  String get onboardingBeat3Future => '振り返るたび、星はつながり、やがて星座になります';
+  String get onboardingDragHint => '星をドラッグして、分類してみよう';
 
   @override
-  String get onboardingDragHint => '星を動かして、分類してみよう';
+  String get onboardingWeeklyTitle => '1週間後の宇宙';
+
+  @override
+  String get onboardingWeeklyBody => '思考は\n銀河になっていく';
+
+  @override
+  String get onboardingWelcomeHome => 'あなただけの銀河が\n始まりました';
 
   @override
   String get onboardingNextButton => '次へ';
