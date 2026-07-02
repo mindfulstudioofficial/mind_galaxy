@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -33,8 +34,10 @@ class AuthService {
 
   static bool _initialized = false;
   static bool _firebaseAvailable = false;
+  static FirebaseAnalytics? _analytics;
 
   static bool get isFirebaseAvailable => _firebaseAvailable;
+  static FirebaseAnalytics? get analytics => _analytics;
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -43,6 +46,7 @@ class AuthService {
     try {
       await Firebase.initializeApp();
       _firebaseAvailable = true;
+      _analytics = FirebaseAnalytics.instance;
       await syncAuthState();
     } catch (e) {
       _firebaseAvailable = false;

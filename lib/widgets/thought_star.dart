@@ -21,6 +21,10 @@ class ThoughtStar extends StatefulWidget {
   final Offset blackHolePosition; // 🚀 重複を削除し、1つにまとめました
   final Offset revisitPosition;
   final bool isTarget;
+  final bool isNewlySpawned;
+  final bool isConstellationMain;
+  final bool isFirstMagnitude;
+  final Offset? formationTarget;
 
   final bool suppressDetailPopup;
   final bool interactionEnabled;
@@ -50,6 +54,10 @@ class ThoughtStar extends StatefulWidget {
     this.onThoughtRemovedFromHive,
     this.onDragEnd, // 🚀 コンストラクタに追加
     this.isTarget = false,
+    this.isNewlySpawned = false,
+    this.isConstellationMain = false,
+    this.isFirstMagnitude = false,
+    this.formationTarget,
   });
 
   @override
@@ -64,6 +72,7 @@ class _ThoughtStarState extends State<ThoughtStar>
 
   late AnimationController _appearController;
   late AnimationController _idleController;
+  AnimationController? _spawnHighlightController;
 
   late Animation<double> _appearScale;
   late Animation<double> _appearOpacity;
@@ -110,8 +119,17 @@ class _ThoughtStarState extends State<ThoughtStar>
 
   double getGlow() {
     final baseGlow = 2.0 + (widget.thought.glowIntensity - 1.0) * 12.0;
-    if (getStage() == 2) return baseGlow + 4.0;
-    return baseGlow;
+    var glow = getStage() == 2 ? baseGlow + 4.0 : baseGlow;
+    if (widget.isFirstMagnitude) {
+      glow += 8.0;
+    } else if (widget.isConstellationMain) {
+      glow += 3.0;
+    }
+    if (widget.isNewlySpawned && _spawnHighlightController != null) {
+      final t = _spawnHighlightController!.value;
+      glow += 10.0 + sin(t * pi * 2) * 4.0;
+    }
+    return glow;
   }
 
   int getParticleCount() {
@@ -166,6 +184,23 @@ class _ThoughtStarState extends State<ThoughtStar>
     );
 
     _appearController.forward();
+
+    if (widget.isNewlySpawned) {
+      _startSpawnHighlight();
+    }
+  }
+
+  void _startSpawnHighlight() {
+    _spawnHighlightController?.dispose();
+    _spawnHighlightController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(count: 3);
+  }
+
+  void _stopSpawnHighlight() {
+    _spawnHighlightController?.dispose();
+    _spawnHighlightController = null;
   }
 
   @override
@@ -173,6 +208,11 @@ class _ThoughtStarState extends State<ThoughtStar>
     super.didUpdateWidget(oldWidget);
     if (!_isDragging) {
       _currentOffset = Offset(widget.x, widget.y);
+    }
+    if (widget.isNewlySpawned && !oldWidget.isNewlySpawned) {
+      _startSpawnHighlight();
+    } else if (!widget.isNewlySpawned && oldWidget.isNewlySpawned) {
+      _stopSpawnHighlight();
     }
   }
 
@@ -274,7 +314,11 @@ class _ThoughtStarState extends State<ThoughtStar>
     final hitSize = starSize + 50;
 
     return AnimatedBuilder(
-      animation: Listenable.merge([_appearController, _idleController]),
+      animation: Listenable.merge([
+        _appearController,
+        _idleController,
+        if (_spawnHighlightController != null) _spawnHighlightController!,
+      ]),
       builder: (context, child) {
         Offset offset;
         if (_isDragging) {
@@ -285,6 +329,10 @@ class _ThoughtStarState extends State<ThoughtStar>
               _appearController.value)!;
         } else if (widget.isTarget &&
             !_isDragging &&
+            widget.formationTarget != null) {
+          offset = widget.formationTarget!;
+        } else if (widget.isTarget &&
+            !_isDragging &&
             (_currentOffset == widget.revisitPosition)) {
           // 🚀 修正：一度も動かしていない（初期位置が中央）場合のみ、中央に固定する
           offset = widget.revisitPosition;
@@ -293,10 +341,21 @@ class _ThoughtStarState extends State<ThoughtStar>
           offset = _currentOffset + _floatingAnim.value;
         }
         // スケール（大きさ）の計算はそのまま
-        final scale =
-            _appearScale.value * (getStage() == 2 ? _pulseAnim.value : 1.0);
+        final highlightScale = widget.isNewlySpawned &&
+                _spawnHighlightController != null
+            ? 1.22 +
+                sin(_spawnHighlightController!.value * pi * 2) * 0.1
+            : 1.0;
+        final scale = _appearScale.value *
+            (getStage() == 2 ? _pulseAnim.value : 1.0) *
+            (widget.isFirstMagnitude ? 1.18 : 1.0) *
+            highlightScale;
         final particleCount = getParticleCount();
         final particleRadius = getParticleRadius() + (_particleAnim.value * 10);
+        final spawnRingT = _spawnHighlightController?.value ?? 0.0;
+        final spawnRingOpacity =
+            widget.isNewlySpawned ? (1.0 - spawnRingT) * 0.92 : 0.0;
+        final spawnRingScale = 0.72 + spawnRingT * 0.62;
 
         return Positioned(
           left: offset.dx - hitSize / 2,
@@ -354,6 +413,30 @@ class _ThoughtStarState extends State<ThoughtStar>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
+                          if (widget.isNewlySpawned && spawnRingOpacity > 0.02)
+                            Transform.scale(
+                              scale: spawnRingScale,
+                              child: Container(
+                                width: hitSize * 0.68,
+                                height: hitSize * 0.68,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.amberAccent
+                                        .withValues(alpha: spawnRingOpacity),
+                                    width: 2.4,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.white.withValues(
+                                          alpha: spawnRingOpacity * 0.45),
+                                      blurRadius: 16,
+                                      spreadRadius: 1.5,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           Icon(Icons.star,
                               color: getStarColor(), size: starSize),
                           if (particleCount > 0)
@@ -391,6 +474,7 @@ class _ThoughtStarState extends State<ThoughtStar>
   void dispose() {
     _appearController.dispose();
     _idleController.dispose();
+    _spawnHighlightController?.dispose();
     super.dispose();
   }
 }

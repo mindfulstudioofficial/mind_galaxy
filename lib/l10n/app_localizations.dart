@@ -359,14 +359,14 @@ abstract class AppLocalizations {
   /// No description provided for @onboardingBeat1Born.
   ///
   /// In en, this message translates to:
-  /// **'Your words have become light'**
+  /// **'Your words have become a star'**
   String get onboardingBeat1Born;
 
-  /// No description provided for @onboardingBeat2Grow.
+  /// No description provided for @onboardingBeat2Revisit.
   ///
   /// In en, this message translates to:
-  /// **'Stars grow with insight and action'**
-  String get onboardingBeat2Grow;
+  /// **'You can revisit your stars anytime.\nAs thoughts gather, they connect across your galaxy.'**
+  String get onboardingBeat2Revisit;
 
   /// No description provided for @onboardingBeat3Future.
   ///

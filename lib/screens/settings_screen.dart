@@ -92,6 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   bool _backupBusy = false;
+  bool _thoughtsReplaced = false;
 
   Future<void> _exportData() async {
     final loc = AppLocalizations.of(context)!;
@@ -178,6 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final count = await BackupService.importAndReplace(jsonString);
       if (!mounted) return;
+      _thoughtsReplaced = true;
       _showSnack(loc.importSuccessSnack(count));
     } on FormatException catch (e) {
       if (mounted) _showSnack(loc.importFailedSnack(e.message));
@@ -215,7 +217,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ? loc.loginStatusWithProvider(_authDisplayName, _providerLabel(loc))
         : loc.guestModeStatus;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.of(context).pop(_thoughtsReplaced);
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF04060D),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -447,6 +455,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

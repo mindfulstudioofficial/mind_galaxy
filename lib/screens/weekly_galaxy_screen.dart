@@ -38,6 +38,13 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
     'neutral',
   ];
 
+  /// Minimum weekly thoughts to consider cinematic (dense) rendering.
+  static const int _cinematicMinThoughts = 30;
+  /// Per-category count treated as "dense" for cinematic mode.
+  static const int _cinematicMinPerCategory = 5;
+  /// How many dense categories are required alongside [_cinematicMinThoughts].
+  static const int _cinematicMinDenseCategories = 3;
+
   @override
   void initState() {
     super.initState();
@@ -340,16 +347,17 @@ class _WeeklyGalaxyScreenState extends State<WeeklyGalaxyScreen> {
   }
 
   bool _useCinematicWeeklyRendering() {
-    if (_weekThoughts.length < 180) return false;
+    if (_weekThoughts.length < _cinematicMinThoughts) return false;
 
     final countsByCategory = <String, int>{for (final c in _layerOrder) c: 0};
     for (final thought in _weekThoughts) {
       final c = _classifyThought(thought);
       countsByCategory[c] = (countsByCategory[c] ?? 0) + 1;
     }
-    final denseCategoryCount =
-        countsByCategory.values.where((count) => count >= 30).length;
-    return denseCategoryCount >= 3;
+    final denseCategoryCount = countsByCategory.values
+        .where((count) => count >= _cinematicMinPerCategory)
+        .length;
+    return denseCategoryCount >= _cinematicMinDenseCategories;
   }
 
   int _weeklyDensityPercent(int totalThoughts) {

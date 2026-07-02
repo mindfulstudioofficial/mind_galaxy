@@ -85,6 +85,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Offset _tutorialDragVector = Offset.zero;
   Color _tutorialStarColor = Colors.white;
   String? _tutorialDragPreviewCategory;
+  bool _onboardingConstellationDemo = false;
+  bool _onboardingStep4MessageVisible = false;
+  List<Offset> _onboardingDemoGhostSlots = const [];
+  List<Offset> _onboardingDemoAllSlots = const [];
   final bool _flashCenter = false;
   Timer? _refreshTimer;
   Timer? _meteorSpawnTimer;
@@ -738,14 +742,79 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
+    if (_tutorialStep == 3) {
+      setState(() {
+        _tutorialStep = 4;
+        _onboardingStep4MessageVisible = false;
+      });
+      unawaited(_startOnboardingConstellationDemo());
+      return;
+    }
+
     if (_tutorialStep == 4) {
+      if (!_onboardingStep4MessageVisible) return;
+      _resetOnboardingConstellationDemo();
       await _completeOnboarding();
       return;
     }
 
-    if (_tutorialStep < 4) {
+    if (_tutorialStep < 3) {
       setState(() => _tutorialStep++);
     }
+  }
+
+  Future<void> _startOnboardingConstellationDemo() async {
+    if (_isConstellationAnimating || _thoughts.isEmpty) {
+      if (mounted) {
+        setState(() => _onboardingStep4MessageVisible = true);
+      }
+      return;
+    }
+
+    final userThought = _thoughts.first;
+    final slots = constellationLayoutSlots(4, _revisitCenterPosition);
+
+    _constellationOriginalPositions[userThought.id] =
+        Offset(userThought.dx, userThought.dy);
+    _constellationFormationTargets[userThought.id] = slots[0];
+
+    setState(() {
+      _onboardingConstellationDemo = true;
+      _onboardingStep4MessageVisible = false;
+      _onboardingDemoAllSlots = slots;
+      _onboardingDemoGhostSlots = slots.sublist(1);
+      _activeConstellation = [userThought];
+      _constellationMain = userThought;
+      _constellationContext = [];
+      _isConstellationAnimating = true;
+      _constellationFormed = false;
+      _showConstellationLines = false;
+    });
+
+    HapticFeedback.heavyImpact();
+    await _animateConstellationFormation([userThought]);
+    if (!mounted) return;
+    setState(() => _showConstellationLines = true);
+  }
+
+  void _onOnboardingConstellationLinesComplete() {
+    if (!mounted) return;
+    HapticFeedback.lightImpact();
+    setState(() {
+      _showConstellationLines = false;
+      _onboardingStep4MessageVisible = true;
+    });
+  }
+
+  void _resetOnboardingConstellationDemo() {
+    if (!_onboardingConstellationDemo) return;
+    _resetConstellationState();
+    setState(() {
+      _onboardingConstellationDemo = false;
+      _onboardingStep4MessageVisible = false;
+      _onboardingDemoGhostSlots = const [];
+      _onboardingDemoAllSlots = const [];
+    });
   }
 
   Future<void> _completeOnboarding() async {
@@ -1100,7 +1169,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Align(
                       alignment: const Alignment(0, -0.45),
-                      child: _buildTutorialText(loc.onboardingBeat2Grow),
+                      child: _buildTutorialText(loc.onboardingBeat2Revisit),
                     ),
                     Positioned(
                       left: 0,
@@ -1117,20 +1186,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          if (_tutorialStep == 4)
+          if (_tutorialStep == 4 && _onboardingStep4MessageVisible)
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => unawaited(_advanceOnboarding()),
                 child: Stack(
                   children: [
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: CustomPaint(
-                          painter: _OnboardingConstellationSilhouettePainter(),
-                        ),
-                      ),
-                    ),
                     Align(
                       alignment: const Alignment(0, -0.45),
                       child: _buildTutorialText(loc.onboardingBeat3Future),
@@ -2328,19 +2390,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   );
               }),
 
-            if (_showConstellationLines && _activeConstellation.isNotEmpty)
+            if (_onboardingConstellationDemo)
+              for (final ghost in _onboardingDemoGhostSlots)
+                Positioned(
+                  left: ghost.dx - 20,
+                  top: ghost.dy - 20,
+                  child: IgnorePointer(
+                    child: Icon(
+                      Icons.star,
+                      color: Colors.white.withValues(alpha: 0.42),
+                      size: 32,
+                    ),
+                  ),
+                ),
+
+            if (_showConstellationLines &&
+                (_activeConstellation.isNotEmpty || _onboardingConstellationDemo))
               Positioned.fill(
                 child: ConstellationLinesOverlay(
                   hub: _revisitCenterPosition,
-                  memberPositions: _activeConstellation
-                      .map((t) => Offset(t.dx, t.dy))
-                      .toList(),
+                  memberPositions: _onboardingConstellationDemo
+                      ? _onboardingDemoAllSlots
+                      : _activeConstellation
+                          .map((t) => Offset(t.dx, t.dy))
+                          .toList(),
                   onLineConnected: _onConstellationLineConnected,
-                  onComplete: _onConstellationLinesComplete,
+                  onComplete: _onboardingConstellationDemo
+                      ? _onOnboardingConstellationLinesComplete
+                      : _onConstellationLinesComplete,
                 ),
               ),
 
-            if (_constellationFormed && (_constellationName ?? '').isNotEmpty)
+            if (_constellationFormed &&
+                !_onboardingConstellationDemo &&
+                (_constellationName ?? '').isNotEmpty)
               Positioned(
                 left: 0,
                 right: 0,
@@ -2633,36 +2716,4 @@ class _MeteorShowerPainter extends CustomPainter {
   bool shouldRepaint(covariant _MeteorShowerPainter oldDelegate) {
     return oldDelegate.now != now || oldDelegate.trails != trails;
   }
-}
-
-class _OnboardingConstellationSilhouettePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width * 0.5, size.height * 0.42);
-    const radius = 72.0;
-    final points = <Offset>[
-      center + const Offset(0, -radius),
-      center + Offset(radius, 0),
-      center + const Offset(0, radius),
-      center + Offset(-radius, 0),
-    ];
-
-    final linePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    for (final point in points) {
-      canvas.drawLine(center, point, linePaint);
-    }
-
-    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.22);
-    for (final point in points) {
-      canvas.drawCircle(point, 3, dotPaint);
-    }
-    canvas.drawCircle(center, 4, dotPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OnboardingConstellationSilhouettePainter oldDelegate) =>
-      false;
 }

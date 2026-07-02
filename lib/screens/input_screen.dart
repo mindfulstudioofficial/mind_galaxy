@@ -9,9 +9,15 @@ import '../config/ads_config.dart';
 import '../models/thought.dart';
 import '../services/app_settings.dart';
 import '../utils/ad_helper.dart';
+import '../utils/colors.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/revisit_prompt.dart';
+import '../widgets/constellation_resonance_overlay.dart';
 
 class InputScreen extends StatefulWidget {
+  /// Pop result when returning home from bulk edit (highlights the star on home).
+  static const highlightOnReturnHome = 'highlightOnReturn';
+
   final String? initialContent;
   final String? initialInsight;
   final String? initialAction;
@@ -21,6 +27,10 @@ class InputScreen extends StatefulWidget {
   final Thought? thoughtToEdit;
   final bool forceBulkMode;
   final bool focusFollowupOnOpen;
+  /// When true (central-star revisit flow), advances automatic revisit schedule on save.
+  final bool advanceRevisitScheduleOnSave;
+  /// Surrounding constellation members shown as read-only context cards.
+  final List<Thought>? contextThoughts;
 
   const InputScreen({
     super.key,
@@ -33,6 +43,8 @@ class InputScreen extends StatefulWidget {
     this.thoughtToEdit,
     this.forceBulkMode = false,
     this.focusFollowupOnOpen = false,
+    this.advanceRevisitScheduleOnSave = false,
+    this.contextThoughts,
   });
 
   @override
@@ -41,6 +53,12 @@ class InputScreen extends StatefulWidget {
 
 class _InputScreenState extends State<InputScreen>
     with TickerProviderStateMixin {
+  /// まとめ入力: 粒子はやや強め、グローはキーボード有無で別係数。
+  static const double _bulkParticleBoost = 1.28;
+  static const double _bulkGlowBoostKeyboard = 1.05;
+  static const double _bulkGlowBoostNoKeyboard = 1.1;
+  static const double _contextCarouselHeight = 120.0;
+
   // 🚀 複数のAnimationControllerを使うため変更
 
   late TextEditingController _controller;
@@ -52,14 +70,15 @@ class _InputScreenState extends State<InputScreen>
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _bulkInsightFieldKey = GlobalKey();
   final GlobalKey _bulkBottomSectionKey = GlobalKey();
+  final GlobalKey _saveButtonKey = GlobalKey();
 
   bool isBulkMode = false;
 
-  // ⭐ 保存時のアニメーション（吸い込み）
+  // 保存時：星座共鳴 → 銀河へ還元する演出
   late AnimationController _saveAnimController;
-  late Animation<double> _saveScaleAnim;
-  late Animation<double> _saveOpacityAnim;
-  late Animation<Offset> _saveMoveAnim;
+  final Set<int> _rippleHapticsFired = {};
+  bool _resonateHapticFired = false;
+  bool _collapseHapticFired = false;
 
   // 🚀 【追加】常時またたき・粒子アニメーション用
   late AnimationController _idleController;
@@ -75,7 +94,10 @@ class _InputScreenState extends State<InputScreen>
   BannerAd? _bannerAd;
   bool _isBannerAdReady = false;
   bool _hasBannerAdError = false;
+  bool _bannerLoadScheduled = false;
   final Random _random = Random();
+  List<Offset> _particleNoiseOffsets = const [];
+  int _particleNoiseCount = 0;
   double _starSize = 1.0;
   double _glowIntensity = 1.0;
   double _particleSpread = 1.0;
@@ -101,20 +123,11 @@ class _InputScreenState extends State<InputScreen>
     _particleSpread = widget.initialParticleSpread ??
         _spreadFromActionLength(actionController.text.length);
 
-    // --- 保存時のアニメーション設定 ---
+    // --- 保存時：星座共鳴演出 ---
     _saveAnimController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 1400),
       vsync: this,
-    );
-    _saveScaleAnim = Tween(begin: 1.0, end: 0.3).animate(
-      CurvedAnimation(parent: _saveAnimController, curve: Curves.easeIn),
-    );
-    _saveOpacityAnim = Tween(begin: 1.0, end: 0.0).animate(_saveAnimController);
-    _saveMoveAnim = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, -200),
-    ).animate(
-        CurvedAnimation(parent: _saveAnimController, curve: Curves.easeIn));
+    )..addListener(_onSaveResonanceTick);
 
     // --- 🚀 【追加】常時アニメーション設定 (脈動と粒子) ---
     _idleController = AnimationController(
@@ -190,6 +203,46 @@ class _InputScreenState extends State<InputScreen>
     if (kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  /// [double.clamp] throws when [lower] > [upper]; star layout can hit that edge case.
+  double _bounded(double value, double lower, double upper) {
+    final lo = min(lower, upper);
+    final hi = max(lower, upper);
+    return value.clamp(lo, hi);
+  }
+
+  void _syncParticleNoise(int count) {
+    if (count <= 0) {
+      _particleNoiseCount = 0;
+      _particleNoiseOffsets = const [];
+      return;
+    }
+    if (count == _particleNoiseCount) return;
+    _particleNoiseCount = count;
+    _particleNoiseOffsets = List.generate(
+      count,
+      (_) => Offset(
+        (_random.nextDouble() - 0.5) * 3,
+        (_random.nextDouble() - 0.5) * 3,
+      ),
+    );
+  }
+
+  void _scheduleBannerAdLoadIfNeeded() {
+    if (_bannerLoadScheduled ||
+        _bannerAd != null ||
+        _hasBannerAdError ||
+        !kShowAds ||
+        !_supportsMobileAds ||
+        AppSettings.isPremium) {
+      return;
+    }
+    _bannerLoadScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _bannerLoadScheduled = false;
+      if (mounted) _loadBannerAd();
+    });
   }
 
   /// 一番上の思考入力にフォーカスしたときは星側を見えるよう先頭へ寄せる。
@@ -343,6 +396,18 @@ class _InputScreenState extends State<InputScreen>
   }
 
   bool _hasUnsavedChanges() {
+    if (widget.thoughtToEdit != null) {
+      final thought = widget.thoughtToEdit!;
+      final initialContent =
+          (widget.initialContent ?? thought.content).trim();
+      final initialInsight =
+          (widget.initialInsight ?? thought.insight ?? '').trim();
+      final initialAction =
+          (widget.initialAction ?? thought.action ?? '').trim();
+      return _controller.text.trim() != initialContent ||
+          insightController.text.trim() != initialInsight ||
+          actionController.text.trim() != initialAction;
+    }
     return _controller.text.trim().isNotEmpty ||
         insightController.text.trim().isNotEmpty ||
         actionController.text.trim().isNotEmpty;
@@ -390,7 +455,11 @@ class _InputScreenState extends State<InputScreen>
     try {
       if (!await _confirmDiscardIfNeeded()) return;
       if (!mounted) return;
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      if (widget.thoughtToEdit != null) {
+        Navigator.of(context).pop(InputScreen.highlightOnReturnHome);
+      } else {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } finally {
       _isNavigatingAway = false;
     }
@@ -399,8 +468,12 @@ class _InputScreenState extends State<InputScreen>
   Future<void> _toggleInputMode() async {
     if (_isModeToggleLocked) return;
     _isModeToggleLocked = true;
+    final enteringBulk = !isBulkMode;
     if (mounted) {
       setState(() => isBulkMode = !isBulkMode);
+    }
+    if (enteringBulk) {
+      FocusManager.instance.primaryFocus?.unfocus();
     }
     await Future<void>.delayed(const Duration(milliseconds: 160));
     _isModeToggleLocked = false;
@@ -429,12 +502,102 @@ class _InputScreenState extends State<InputScreen>
     );
   }
 
+  InputDecoration _labeledInputDecoration({
+    required String label,
+    required String hint,
+    required int currentLength,
+    required int? maxLength,
+    double hintFontSize = 15,
+    double fillAlpha = 0.05,
+  }) {
+    final labelStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.62),
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+    );
+    final outlineBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: AppColors.inputBorder, width: 1),
+    );
+    final focusedBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: AppColors.inputFocus, width: 1.25),
+    );
+    final focusedLabelStyle =
+        labelStyle.copyWith(color: AppColors.inputFocus);
+    return InputDecoration(
+      labelText: label,
+      labelStyle: labelStyle,
+      floatingLabelStyle: WidgetStateTextStyle.resolveWith((states) {
+        if (states.contains(WidgetState.focused)) {
+          return focusedLabelStyle;
+        }
+        return labelStyle;
+      }),
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      alignLabelWithHint: true,
+      hintText: hint,
+      hintMaxLines: 2,
+      hintStyle: TextStyle(
+        color: Colors.white38,
+        fontSize: hintFontSize,
+        height: 1.25,
+      ),
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: fillAlpha),
+      border: outlineBorder,
+      enabledBorder: outlineBorder,
+      focusedBorder: focusedBorder,
+      counter: _buildUnifiedCounter(
+        context,
+        currentLength: currentLength,
+        maxLength: maxLength,
+      ),
+    );
+  }
+
+  void _onSaveResonanceTick() {
+    if (!_isSaving) return;
+    final t = _saveAnimController.value;
+    final contextCount = widget.contextThoughts?.length ?? 0;
+
+    for (var i = 0; i < contextCount; i++) {
+      if (_rippleHapticsFired.contains(i)) continue;
+      final reach = 0.12 + i * 0.09 + 0.12;
+      if (t >= reach) {
+        _rippleHapticsFired.add(i);
+        HapticFeedback.lightImpact();
+      }
+    }
+
+    if (!_resonateHapticFired && t >= 0.52) {
+      _resonateHapticFired = true;
+      HapticFeedback.mediumImpact();
+    }
+
+    if (!_collapseHapticFired && t >= 0.75) {
+      _collapseHapticFired = true;
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  List<Color> _resonanceContextColors() {
+    final thoughts = widget.contextThoughts;
+    if (thoughts == null || thoughts.isEmpty) return const [];
+    return thoughts.map((t) => _contextCategoryColor(t.category)).toList();
+  }
+
   // --- 保存処理 ---
   Future<void> _saveThought() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _isSaving = true);
-    HapticFeedback.heavyImpact(); // 保存時は強く
+    _rippleHapticsFired.clear();
+    _resonateHapticFired = false;
+    _collapseHapticFired = false;
+    HapticFeedback.heavyImpact();
+    _saveAnimController.reset();
     await _saveAnimController.forward();
     if (!mounted) return;
     if (widget.thoughtToEdit != null) {
@@ -449,9 +612,17 @@ class _InputScreenState extends State<InputScreen>
       thought.starSize = _starSize;
       thought.glowIntensity = _glowIntensity;
       thought.particleSpread = _particleSpread;
-      thought.revisitAt = DateTime.now().add(const Duration(days: 1));
-      if (thought.isInBox) {
-        await thought.save();
+      if (widget.advanceRevisitScheduleOnSave) {
+        final batch = <Thought>[thought];
+        if (widget.contextThoughts != null) {
+          batch.addAll(widget.contextThoughts!);
+        }
+        await applyRevisitSaveScheduleToGroup(batch);
+      } else {
+        thought.revisitAt = DateTime.now().add(const Duration(days: 1));
+        if (thought.isInBox) {
+          await thought.save();
+        }
       }
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -472,9 +643,7 @@ class _InputScreenState extends State<InputScreen>
     if (isPremium) return const SizedBox.shrink();
     if (!kShowAds) return const SizedBox.shrink();
     if (!_supportsMobileAds) return const SizedBox(height: 52);
-    if (_bannerAd == null && !_hasBannerAdError) {
-      _loadBannerAd();
-    }
+    _scheduleBannerAdLoadIfNeeded();
     return Container(
       height: 52,
       width: double.infinity,
@@ -495,6 +664,126 @@ class _InputScreenState extends State<InputScreen>
     );
   }
 
+  Color _contextCategoryColor(String category) {
+    switch (category) {
+      case 'future':
+        return Colors.blue;
+      case 'past':
+        return Colors.purple;
+      case 'emotion':
+        return Colors.pink;
+      case 'action':
+        return Colors.yellow;
+      default:
+        return Colors.white54;
+    }
+  }
+
+  Widget _buildContextThoughtSection(AppLocalizations loc) {
+    final contextThoughts = widget.contextThoughts;
+    if (contextThoughts == null || contextThoughts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          loc.constellationContextLabel,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.42),
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: _contextCarouselHeight,
+          width: double.infinity,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.zero,
+            clipBehavior: Clip.none,
+            itemCount: contextThoughts.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final thought = contextThoughts[index];
+              return _buildContextThoughtCard(
+                thought,
+                _contextCategoryColor(thought.category),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContextThoughtCard(Thought thought, Color color) {
+    return Container(
+      width: 160,
+      height: _contextCarouselHeight,
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withValues(alpha: 0.035),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Icon(Icons.star, size: 11, color: color),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  thought.content,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 12,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          if ((thought.insight ?? '').isNotEmpty)
+            Text(
+              thought.insight!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                height: 1.2,
+              ),
+            ),
+          if ((thought.action ?? '').isNotEmpty) ...[
+            if ((thought.insight ?? '').isNotEmpty) const SizedBox(height: 2),
+            Text(
+              thought.action!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color.withValues(alpha: 0.72),
+                fontSize: 10,
+                height: 1.2,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 🚀 計算された星のパラメータを取得
@@ -511,14 +800,26 @@ class _InputScreenState extends State<InputScreen>
     final bottomSafeInset = viewPadding.bottom;
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     final keyboardVisible = keyboardInset > 0;
+    final hasContextThoughts =
+        widget.contextThoughts != null && widget.contextThoughts!.isNotEmpty;
     final showFooterAd =
         !keyboardVisible && !AppSettings.isPremium && kShowAds;
+    /// まとめ入力＋キーボード時は保存を画面下に固定し、キーボード直上で常にタップ可能にする。
+    final bool pinBulkSaveAboveKeyboard = keyboardVisible && isBulkMode;
+    final double pinnedBulkSaveOuterBottom =
+        (8 + MediaQuery.paddingOf(context).bottom).clamp(8.0, 64.0);
+    const double pinnedBulkSaveBarTotalHeight = 84.0;
     // キーボード時は末尾（行動枠・保存）までスクロールできる余白を確保
     final formBottomPadding = keyboardVisible
-        ? (32.0 +
-            bottomSafeInset +
-            keyboardInset +
-            (isBulkMode ? 112.0 : 48.0))
+        ? (pinBulkSaveAboveKeyboard && isBulkMode
+            ? pinnedBulkSaveBarTotalHeight +
+                pinnedBulkSaveOuterBottom +
+                keyboardInset +
+                20.0
+            : 32.0 +
+                bottomSafeInset +
+                keyboardInset +
+                (isBulkMode ? 112.0 : 48.0))
         : ((showFooterAd ? 104.0 : 32.0) + bottomSafeInset);
     final horizontalPadding = isTablet ? 40.0 : 28.0;
     final starAreaSize = isTablet ? 240.0 : 200.0;
@@ -528,18 +829,21 @@ class _InputScreenState extends State<InputScreen>
     final double fixedStarTop;
     final double? bulkStarBandTop;
     final double? bulkStarBandHeight;
+    final double bulkKeyboardStarSize = isTablet ? 64.0 : 56.0;
     if (isBulkMode) {
       if (keyboardVisible) {
-        // キーボード時: シンプル入力ボタン行の直下に星、その直下へ入力3枠
+        // キーボード時: ヘッダー直下の専用帯に星を収め、入力枠と被らせない
         bulkStarBandTop = viewPadding.top + headerBlockHeight;
-        bulkStarBandHeight = isTablet ? 48.0 : 36.0;
-        formTopGap = bulkStarBandHeight + 6.0;
+        bulkStarBandHeight = bulkKeyboardStarSize;
+        formTopGap = bulkStarBandHeight + 18.0;
       } else {
         const bulkLayoutLift = 16.0;
         bulkStarBandTop = viewPadding.top + headerBlockHeight - bulkLayoutLift;
-        bulkStarBandHeight = isTablet ? 210.0 : 200.0;
+        bulkStarBandHeight = hasContextThoughts
+            ? (isTablet ? 148.0 : 132.0)
+            : (isTablet ? 210.0 : 200.0);
         formTopGap = bulkStarBandHeight +
-            (isTablet ? 16.0 : 12.0) -
+            (isTablet ? 12.0 : 8.0) -
             bulkLayoutLift;
       }
       fixedStarTop = bulkStarBandTop; // まとめ入力は ClipRect 帯内で配置
@@ -552,9 +856,10 @@ class _InputScreenState extends State<InputScreen>
       fixedStarTop = viewPadding.top +
           (keyboardVisible ? 20.0 : (isTablet ? 36.0 : 46.0));
     }
-    final starLayoutSize = keyboardVisible
+    // 演出キャンバス: まとめ入力＋キーボードはコンパクト、それ以外はシンプル入力と同一
+    final starEffectSize = keyboardVisible
         ? (isBulkMode
-            ? (isTablet ? 36.0 : 30.0)
+            ? bulkKeyboardStarSize
             : (starAreaSize * 0.52).clamp(96.0, starAreaSize))
         : starAreaSize;
 
@@ -572,14 +877,13 @@ class _InputScreenState extends State<InputScreen>
     );
     // まとめ入力の下段：OS / EditableText 側の ensureVisible と競合しづらいよう余白を抑える
     final bulkFieldScrollPadding = keyboardVisible && isBulkMode
-        ? const EdgeInsets.fromLTRB(0, 64, 0, 24)
+        ? EdgeInsets.fromLTRB(
+            0,
+            64,
+            0,
+            24 + keyboardInset * 0.25 + pinnedBulkSaveBarTotalHeight * 0.5,
+          )
         : fieldScrollPadding;
-
-    /// まとめ入力＋キーボード時は保存を画面下に固定し、キーボード直上で常にタップ可能にする。
-    final bool pinBulkSaveAboveKeyboard = keyboardVisible && isBulkMode;
-    final double pinnedBulkSaveOuterBottom =
-        (8 + MediaQuery.paddingOf(context).bottom).clamp(8.0, 64.0);
-    const double pinnedBulkSaveBarTotalHeight = 84.0;
 
     return PopScope(
       canPop: false,
@@ -600,7 +904,8 @@ class _InputScreenState extends State<InputScreen>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        resizeToAvoidBottomInset: true, // キーボード表示時にリサイズ
+        // まとめ入力は viewInsets.bottom で手動調整（二重リサイズを防ぐ）
+        resizeToAvoidBottomInset: !isBulkMode,
         body: Stack(
           fit: StackFit.expand,
           clipBehavior: Clip.none,
@@ -618,80 +923,154 @@ class _InputScreenState extends State<InputScreen>
                   actionController,
                 ]),
                 builder: (context, _) {
-                  final pulseBoost = _inputPulseAnim.value;
+                  final particleBoost =
+                      isBulkMode ? _bulkParticleBoost : 1.0;
+                  final glowBoost = isBulkMode
+                      ? (keyboardVisible
+                          ? _bulkGlowBoostKeyboard
+                          : _bulkGlowBoostNoKeyboard)
+                      : 1.0;
+                  final glowScale = isBulkMode && keyboardVisible
+                      ? (starEffectSize / starAreaSize).clamp(0.38, 0.55)
+                      : 1.0;
                   final hasGlow = insightLen > 0;
+                  // まとめ入力は常に内側グロー（キーボード開閉で描画経路が切り替わらない）
+                  final useInnerGlowLayout = isBulkMode && hasGlow;
+                  final pulseBoost = 1.0 +
+                      (_inputPulseAnim.value - 1.0) *
+                          (isBulkMode ? particleBoost : 1.0);
                   final pulseT = (_inputPulseController.value).clamp(0.0, 1.0);
                   final boostedStarColor = Color.lerp(
                           starColor, Colors.amberAccent, pulseT * 0.55) ??
                       starColor;
-                  // キーボード表示中のまとめ入力は星が小さくても外側グローが見えるよう別係数
-                  final bulkKeyboardGlow = isBulkMode && keyboardVisible;
-                  final glowScale = bulkKeyboardGlow
-                      ? 1.0
-                      : (isBulkMode
-                          ? (starLayoutSize / starAreaSize).clamp(0.5, 1.0)
-                          : 1.0);
-                  final keyboardGlowBoost = bulkKeyboardGlow ? 1.42 : 1.0;
+                  // 粒子（外側）→ グロー（内側）→ 星（中心）
                   var dynamicGlow = hasGlow
-                      ? glowRadius *
-                          _pulseAnim.value *
-                          glowScale *
-                          keyboardGlowBoost
+                      ? glowRadius * _pulseAnim.value * glowBoost * glowScale
                       : 0.0;
-                  if (hasGlow && bulkKeyboardGlow) {
-                    dynamicGlow = dynamicGlow.clamp(22.0, 72.0);
+                  if (hasGlow && isBulkMode && keyboardVisible) {
+                    dynamicGlow = dynamicGlow.clamp(5.0, 14.0);
                   }
+                  final whiteGlowAlpha = (0.28 + pulseT * 0.14) *
+                      (isBulkMode && !keyboardVisible ? 1.1 : 1.0);
+                  final cyanGlowAlpha = (0.16 + pulseT * 0.14) *
+                      (isBulkMode && !keyboardVisible ? 1.12 : 1.0);
+                  const whiteBlurMul = 1.2;
+                  const cyanBlurMul = 0.75;
+                  const whiteSpreadMul = 2.4;
+                  const cyanSpreadMul = 0.95;
+                  const innerGlowBlurScale = 0.72;
+                  const innerGlowSpreadScale = 0.38;
+                  final glowSpreadBase =
+                      (_glowIntensity - 1.0) * glowBoost * glowScale;
+                  final renderParticleCount = particleCount == 0
+                      ? 0
+                      : (particleCount * particleBoost)
+                          .round()
+                          .clamp(particleCount, 52);
+                  _syncParticleNoise(renderParticleCount);
+                  final renderParticleRadius =
+                      particleRadius * particleBoost;
+                  final renderParticleSize =
+                      (1.6 + (_particleSpread - 1.0) * 3.6) *
+                          (isBulkMode ? 1.12 : 1.0);
+                  final renderStarSize = isBulkMode && keyboardVisible
+                      ? (24.0 * _starSize).clamp(22.0, 38.0)
+                      : starSize;
+                  final activeParticleRadius = renderParticleCount > 0
+                      ? renderParticleRadius * _pulseAnim.value
+                      : 0.0;
+                  // グローは粒子リングより内側。粒子が小さいときも clamp 逆転で落ちないよう min/max で合成
+                  final innerGlowDiameter = useInnerGlowLayout
+                      ? (renderParticleCount > 0
+                          ? min(
+                              starEffectSize,
+                              max(
+                                renderStarSize * 1.4,
+                                activeParticleRadius * 0.88,
+                              ),
+                            )
+                          : keyboardVisible
+                              ? _bounded(
+                                  renderStarSize * 2.1,
+                                  28.0,
+                                  starEffectSize * 0.82,
+                                )
+                              : _bounded(
+                                  renderStarSize * 2.2 + dynamicGlow * 0.55,
+                                  56.0,
+                                  starEffectSize * 0.42,
+                                ))
+                      : starEffectSize;
+                  final innerBlurCap = renderParticleCount > 0
+                      ? activeParticleRadius * 0.36
+                      : innerGlowDiameter * 0.24;
 
-                  final whiteGlowAlpha =
-                      bulkKeyboardGlow ? 0.42 + pulseT * 0.18 : 0.28 + pulseT * 0.14;
-                  final cyanGlowAlpha =
-                      bulkKeyboardGlow ? 0.28 + pulseT * 0.18 : 0.16 + pulseT * 0.14;
-                  final whiteBlurMul = bulkKeyboardGlow ? 1.55 : 1.2;
-                  final cyanBlurMul = bulkKeyboardGlow ? 1.15 : 0.75;
-                  final whiteSpreadMul = bulkKeyboardGlow ? 3.4 : 2.4;
-                  final cyanSpreadMul = bulkKeyboardGlow ? 1.35 : 0.95;
+                  List<BoxShadow> buildGlowShadows({
+                    required double blurScale,
+                    required double spreadScale,
+                    double? maxBlur,
+                  }) {
+                    double cappedBlur(double raw) {
+                      final v = raw * blurScale;
+                      return maxBlur == null ? v : min(v, maxBlur);
+                    }
+
+                    return [
+                      BoxShadow(
+                        color: Colors.white.withValues(alpha: whiteGlowAlpha),
+                        blurRadius:
+                            cappedBlur(dynamicGlow * whiteBlurMul),
+                        spreadRadius:
+                            glowSpreadBase * whiteSpreadMul * spreadScale,
+                      ),
+                      BoxShadow(
+                        color: Colors.cyanAccent
+                            .withValues(alpha: cyanGlowAlpha),
+                        blurRadius:
+                            cappedBlur(dynamicGlow * cyanBlurMul),
+                        spreadRadius:
+                            glowSpreadBase * cyanSpreadMul * spreadScale,
+                      ),
+                    ];
+                  }
 
                   final starVisual = AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
-                    width: starLayoutSize,
-                    height: starLayoutSize,
+                    curve: Curves.easeOutCubic,
+                    width: starEffectSize,
+                    height: starEffectSize,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      boxShadow: hasGlow
-                          ? [
-                              BoxShadow(
-                                color: Colors.white
-                                    .withValues(alpha: whiteGlowAlpha),
-                                blurRadius: dynamicGlow * whiteBlurMul,
-                                spreadRadius: (_glowIntensity - 1.0) *
-                                    whiteSpreadMul *
-                                    glowScale,
-                              ),
-                              BoxShadow(
-                                color: Colors.cyanAccent
-                                    .withValues(alpha: cyanGlowAlpha),
-                                blurRadius: dynamicGlow * cyanBlurMul,
-                                spreadRadius: (_glowIntensity - 1.0) *
-                                    cyanSpreadMul *
-                                    glowScale,
-                              ),
-                              if (bulkKeyboardGlow)
-                                BoxShadow(
-                                  color: Colors.cyanAccent
-                                      .withValues(alpha: 0.12 + pulseT * 0.1),
-                                  blurRadius: dynamicGlow * 1.35,
-                                  spreadRadius:
-                                      (_glowIntensity - 1.0) * 1.1,
-                                ),
-                            ]
+                      boxShadow: hasGlow && !useInnerGlowLayout
+                          ? buildGlowShadows(
+                              blurScale: 1.0,
+                              spreadScale: 1.0,
+                            )
                           : const [],
                     ),
                     child: Stack(
+                      clipBehavior: Clip.none,
                       alignment: Alignment.center,
                       children: [
+                        if (useInnerGlowLayout)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutCubic,
+                            width: innerGlowDiameter,
+                            height: innerGlowDiameter,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: buildGlowShadows(
+                                blurScale: innerGlowBlurScale,
+                                spreadScale: innerGlowSpreadScale,
+                                maxBlur: innerBlurCap,
+                              ),
+                            ),
+                          ),
                         TweenAnimationBuilder<double>(
-                          tween: Tween<double>(end: starSize * pulseBoost),
+                          tween: Tween<double>(
+                              end: renderStarSize * pulseBoost),
                           duration: const Duration(milliseconds: 180),
                           curve: Curves.easeOutCubic,
                           builder: (context, animatedSize, _) {
@@ -702,24 +1081,26 @@ class _InputScreenState extends State<InputScreen>
                             );
                           },
                         ),
-                        if (particleCount > 0)
-                          ...List.generate(particleCount, (i) {
-                            final angle = (i / particleCount) * 2 * pi;
-                            final currentRadius =
-                                particleRadius * _pulseAnim.value;
-                            final noiseX = (_random.nextDouble() - 0.5) * 3;
-                            final noiseY = (_random.nextDouble() - 0.5) * 3;
+                        if (renderParticleCount > 0)
+                          ...List.generate(renderParticleCount, (i) {
+                            final angle =
+                                (i / renderParticleCount) * 2 * pi;
+                            final currentRadius = activeParticleRadius;
+                            final noise = i < _particleNoiseOffsets.length
+                                ? _particleNoiseOffsets[i]
+                                : Offset.zero;
 
                             return Transform.translate(
                               offset: Offset(
-                                cos(angle) * currentRadius + noiseX,
-                                sin(angle) * currentRadius + noiseY,
+                                cos(angle) * currentRadius + noise.dx,
+                                sin(angle) * currentRadius + noise.dy,
                               ),
                               child: Opacity(
-                                opacity: (_particleOpacityAnim.value * 1.25).clamp(0.0, 1.0),
+                                opacity: (_particleOpacityAnim.value * 1.25)
+                                    .clamp(0.0, 1.0),
                                 child: Icon(
                                   Icons.circle,
-                                  size: 1.6 + (_particleSpread - 1.0) * 3.6,
+                                  size: renderParticleSize,
                                   color: boostedStarColor,
                                 ),
                               ),
@@ -738,10 +1119,14 @@ class _InputScreenState extends State<InputScreen>
                       right: 0,
                       height: bulkStarBandHeight,
                       child: Align(
-                        alignment: keyboardVisible && isBulkMode
+                        alignment: keyboardVisible
                             ? Alignment.topCenter
                             : Alignment.center,
-                        child: starVisual,
+                        child: SizedBox(
+                          width: starEffectSize,
+                          height: starEffectSize,
+                          child: starVisual,
+                        ),
                       ),
                     );
                   }
@@ -802,7 +1187,7 @@ class _InputScreenState extends State<InputScreen>
                                   Icons.home_outlined,
                                   color: Colors.white70,
                                 ),
-                                tooltip: 'Home',
+                                tooltip: loc.homeTooltip,
                               ),
                             ],
                           ),
@@ -817,7 +1202,16 @@ class _InputScreenState extends State<InputScreen>
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: EdgeInsets.only(bottom: formBottomPadding),
-                          child: Column(
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              textSelectionTheme:
+                                  const TextSelectionThemeData(
+                                cursorColor: AppColors.inputFocus,
+                                selectionColor: Color(0x408FB0E8),
+                                selectionHandleColor: AppColors.inputFocus,
+                              ),
+                            ),
+                            child: Column(
                             children: [
                               // モードに応じて上部余白を調整（星の位置に合わせる）
                               SizedBox(height: formTopGap),
@@ -829,7 +1223,7 @@ class _InputScreenState extends State<InputScreen>
                                 maxLength: 200,
                                 minLines: 1,
                                 maxLines: bulkContentMaxLines,
-                                autofocus: !isBulkMode, // シンプル入力時はオートフォーカス
+                                autofocus: !isBulkMode,
                                 scrollPadding: fieldScrollPadding,
                                 style: const TextStyle(
                                     color: Colors.white, fontSize: 18),
@@ -840,23 +1234,12 @@ class _InputScreenState extends State<InputScreen>
                                   });
                                   _triggerInputPulse();
                                 },
-                                decoration: InputDecoration(
-                                  hintText: loc.inputHint,
-                                  hintMaxLines: 2,
-                                  hintStyle: const TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 15,
-                                    height: 1.25,
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.white10,
-                                  border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14)),
-                                  counter: _buildUnifiedCounter(
-                                    context,
-                                    currentLength: contentLen,
-                                    maxLength: 200,
-                                  ),
+                                decoration: _labeledInputDecoration(
+                                  label: loc.thoughtLabel,
+                                  hint: loc.inputHint,
+                                  currentLength: contentLen,
+                                  maxLength: 200,
+                                  fillAlpha: 0.10,
                                 ),
                               ),
                               SizedBox(height: bulkFieldGapAfterContent),
@@ -884,22 +1267,12 @@ class _InputScreenState extends State<InputScreen>
                                             .lightImpact(); // 書き始めにフィードバック
                                       }
                                     },
-                                    decoration: InputDecoration(
-                                    hintText: loc.insightHint,
-                                    hintStyle:
-                                        const TextStyle(color: Colors.white30),
-                                    filled: true,
-                                    fillColor:
-                                        Colors.white.withValues(alpha: 0.05),
-                                    border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(14)),
-                                    counter: _buildUnifiedCounter(
-                                      context,
+                                    decoration: _labeledInputDecoration(
+                                      label: loc.insightLabel,
+                                      hint: loc.insightHint,
                                       currentLength: insightLen,
                                       maxLength: 200,
                                     ),
-                                  ),
                                 ),
                                 ),
                                 SizedBox(height: bulkFieldGapBetween),
@@ -929,34 +1302,31 @@ class _InputScreenState extends State<InputScreen>
                                           HapticFeedback.mediumImpact();
                                         }
                                       },
-                                      decoration: InputDecoration(
-                                        hintText: loc.actionHint,
-                                        hintStyle: const TextStyle(
-                                            color: Colors.white38),
-                                        filled: true,
-                                        fillColor: Colors.white
-                                            .withValues(alpha: 0.05),
-                                        border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14)),
-                                        counter: _buildUnifiedCounter(
-                                          context,
-                                          currentLength: actionLen,
-                                          maxLength: 200,
-                                        ),
+                                      decoration: _labeledInputDecoration(
+                                        label: loc.actionLabel,
+                                        hint: loc.actionHint,
+                                        currentLength: actionLen,
+                                        maxLength: 200,
                                       ),
                                     ),
+                                    if (hasContextThoughts) ...[
+                                      const SizedBox(height: 14),
+                                      _buildContextThoughtSection(loc),
+                                    ],
                                     const SizedBox(height: 12),
                                     if (!pinBulkSaveAboveKeyboard)
-                                      ElevatedButton(
-                                        onPressed: _saveThought,
-                                        style: ElevatedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 40, vertical: 14),
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black,
+                                      KeyedSubtree(
+                                        key: _saveButtonKey,
+                                        child: ElevatedButton(
+                                          onPressed: _saveThought,
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 40, vertical: 14),
+                                            backgroundColor: Colors.white,
+                                            foregroundColor: Colors.black,
+                                          ),
+                                          child: Text(loc.saveThought),
                                         ),
-                                        child: Text(loc.saveThought),
                                       )
                                     else
                                       const SizedBox(
@@ -965,20 +1335,24 @@ class _InputScreenState extends State<InputScreen>
                                 ),
                               ] else ...[
                                 const SizedBox(height: 12),
-                                ElevatedButton(
-                                  onPressed: _saveThought,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 40, vertical: 14),
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black,
+                                KeyedSubtree(
+                                  key: _saveButtonKey,
+                                  child: ElevatedButton(
+                                    onPressed: _saveThought,
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 40, vertical: 14),
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
+                                    ),
+                                    child: Text(loc.saveThought),
                                   ),
-                                  child: Text(loc.saveThought),
                                 ),
                               ],
 
                               const SizedBox(height: 24),
                             ],
+                          ),
                           ),
                         ),
                       ),
@@ -1010,47 +1384,35 @@ class _InputScreenState extends State<InputScreen>
               Positioned(
                 left: horizontalPadding,
                 right: horizontalPadding,
-                bottom: pinnedBulkSaveOuterBottom,
+                bottom: pinnedBulkSaveOuterBottom + keyboardInset,
                 child: Align(
                   alignment: Alignment.bottomCenter,
                   child: ResponsiveContentWidth(
                     padding: EdgeInsets.zero,
-                    child: ElevatedButton(
-                      onPressed: _saveThought,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 48),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 40, vertical: 14),
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                    child: KeyedSubtree(
+                      key: _saveButtonKey,
+                      child: ElevatedButton(
+                        onPressed: _saveThought,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 48),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 40, vertical: 14),
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                        ),
+                        child: Text(loc.saveThought),
                       ),
-                      child: Text(loc.saveThought),
                     ),
                   ),
                 ),
               ),
 
-            // ===============================================
-            // ⭐ 保存時の吸い込みアニメーション（そのまま残す）
-            // ===============================================
+            // 保存時：中央星が共鳴し、周囲の星へ波紋が伝わって銀河へ還元
             if (_isSaving)
-              Center(
-                child: AnimatedBuilder(
-                  animation: _saveAnimController,
-                  builder: (_, __) {
-                    return Transform.translate(
-                      offset: _saveMoveAnim.value,
-                      child: Transform.scale(
-                        scale: _saveScaleAnim.value,
-                        child: Opacity(
-                          opacity: _saveOpacityAnim.value,
-                          child: const Icon(Icons.star,
-                              color: Colors.white, size: 40),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              ConstellationResonanceOverlay(
+                animation: _saveAnimController,
+                mainStarColor: starColor,
+                contextStarColors: _resonanceContextColors(),
               ),
           ],
         ),

@@ -138,10 +138,10 @@ class AppLocalizationsJa extends AppLocalizations {
   String get onboardingSubmitButton => '星にする';
 
   @override
-  String get onboardingBeat1Born => 'あなたの言葉が、光になった';
+  String get onboardingBeat1Born => 'あなたの言葉が、星になった';
 
   @override
-  String get onboardingBeat2Grow => '星は、気づきと行動で育っていく';
+  String get onboardingBeat2Revisit => 'あとから何度でも振り返れます。\n思考が重なると、星はつながっていきます';
 
   @override
   String get onboardingBeat3Future => '振り返るたび、星はつながり、やがて星座になります';

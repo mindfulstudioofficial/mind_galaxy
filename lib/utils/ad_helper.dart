@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, kReleaseMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:mindgalaxy/config/ads_config.dart';
 
 /// AdMob 広告ユニット。
@@ -36,10 +36,6 @@ class AdHelper {
       'ca-app-pub-8944199388403475/4239975982';
 
   static bool get _useProductionAds {
-    // iOS は配信済み release 起動時に必ず本番広告を使う。
-    if (!kIsWeb && Platform.isIOS && kReleaseMode) {
-      return true;
-    }
     return !kDebugMode && !kForceTestAds;
   }
 

@@ -142,10 +142,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingSubmitButton => 'Make it a star';
 
   @override
-  String get onboardingBeat1Born => 'Your words have become light';
+  String get onboardingBeat1Born => 'Your words have become a star';
 
   @override
-  String get onboardingBeat2Grow => 'Stars grow with insight and action';
+  String get onboardingBeat2Revisit =>
+      'You can revisit your stars anytime.\nAs thoughts gather, they connect across your galaxy.';
 
   @override
   String get onboardingBeat3Future =>

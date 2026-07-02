@@ -5,10 +5,15 @@ import 'package:flutter/foundation.dart';
 const bool _kDisableAds =
     bool.fromEnvironment('DISABLE_ADS', defaultValue: false);
 
-/// テスター配布中は本番広告を避けるため、デフォルトでテスト広告を強制する。
-/// ただし iOS release 起動時は [AdHelper] 側で本番広告を優先する。
+/// テスター配布などでテスト広告だけ使いたいとき。
+/// 例: `--dart-define=FORCE_TEST_ADS=true`
 const bool kForceTestAds =
-    bool.fromEnvironment('FORCE_TEST_ADS', defaultValue: true);
+    bool.fromEnvironment('FORCE_TEST_ADS', defaultValue: false);
+
+/// 星の再訪フローを実機・シミュレータで確認するときのみ。
+/// 例: `flutter run --dart-define=FORCE_REVISIT_DEBUG=true`
+const bool kForceRevisitDebug =
+    bool.fromEnvironment('FORCE_REVISIT_DEBUG', defaultValue: false);
 
 /// バナー・リワードを表示するか。Web のみオフ。
 bool get kShowAds => !kIsWeb && !_kDisableAds;
