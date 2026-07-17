@@ -1,0 +1,63 @@
+workflows:
+  mindgalaxy-release-workflow:
+    name: Mind Galaxy Release (iOS & Android)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      flutter: default # Dart SDK >=3.4.0 環境を自動利用
+      groups:
+        - keystore_credentials
+        - google_play_credentials
+        - app_store_credentials
+        - mindgalaxy_env_vars
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: 'feature/onboarding-final'
+          include: true
+          source: true
+    scripts:
+      - name: Set up local.properties
+        script: |
+          echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Set up Android Keystore
+        script: |
+          echo $CM_KEYSTORE | base64 --decode > $CM_BUILD_DIR/android/app/key.jks
+      - name: Build Android App Bundle (AAB)
+        script: |
+          # MindGalaxyのAndroid用Appleログインに必要な変数を注入します
+          flutter build appbundle --release \
+            --dart-define=APPLE_ANDROID_SERVICE_ID=$APPLE_ANDROID_SERVICE_ID \
+            --dart-define=APPLE_ANDROID_REDIRECT_URI=$APPLE_ANDROID_REDIRECT_URI
+      - name: Set up keychain for iOS
+        script: |
+          keychain initialize
+      - name: Fetch iOS signing files
+        script: |
+          app-store-connect fetch-signing-files "studio.mindful.mindgalaxy" --type IOS_APP_STORE --create
+      - name: Use system default keychain
+        script: |
+          keychain add-certificates
+      - name: Build iOS IPA
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/ios/ipa/*.ipa
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal # 製品版にする場合は 'production' に変更してください
+        submit_as_draft: true
+      app_store_connect:
+        auth:
+          issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+          key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+          private_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        submit_to_testflight: true
+        submit_to_app_store: false
