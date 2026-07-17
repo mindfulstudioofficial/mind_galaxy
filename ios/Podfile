@@ -1,7 +1,9 @@
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
-# Swift Package Managerの自動重複バグを防ぐため、強制的にCocoaPods側を優先する設定
-$GTMSessionFetcherCore = 'CocoaPods'
+# Swift Package Manager（SPM）を一旦完全に無効化し、従来のCocoaPodsのみでビルドする設定
+RUST_BACKTRACE=1
+ENV['FLUTTER_SUPPRESS_SWIFT_PACKAGE_MANAGER'] = '1'
+
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
