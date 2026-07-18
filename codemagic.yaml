@@ -14,7 +14,8 @@ workflows:
       events:
         - push
       branch_patterns:
-        - pattern: 'feature/onboarding-final'
+        # 手動ビルドでどのブランチを選んでもこのワークフローを選べるようにする
+        - pattern: '*'
           include: true
           source: true
     scripts:
@@ -55,12 +56,13 @@ workflows:
     publishing:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: internal # 製品版にする場合は 'production' に変更してください
+        # 製品版トラックへアップロード（下書きとして作成。コンソールで公開操作が必要）
+        track: production
         submit_as_draft: true
       app_store_connect:
-        auth:
-          issuer_id: $APP_STORE_CONNECT_ISSUER_ID
-          key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-          private_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        # auth: { private_key: ... } 形式は検証エラーになるため、公式のフラット形式を使う
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         submit_to_app_store: false
