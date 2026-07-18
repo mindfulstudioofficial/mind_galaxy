@@ -23,7 +23,9 @@ dependencies:
   firebase_core: ^4.9.0
   firebase_auth: ^6.5.1
   firebase_analytics: ^12.4.1
-  google_sign_in: 6.2.1
+  # 6.3+ pulls google_sign_in_ios >=5.8.1 (Package.swift). 5.7.0 had no SPM
+  # support and double-linked GTMSessionFetcherCore with Firebase via SPM.
+  google_sign_in: ^6.3.0
   sign_in_with_apple: ^8.0.0
   crypto: ^3.0.6
   google_mobile_ads: ^8.0.0
@@ -43,7 +45,8 @@ dev_dependencies:
 # Transitive (path_provider_windows / share_plus); 5.1.x breaks on current Dart (UnmodifiableUint8ListView).
 dependency_overrides:
   win32: ^5.10.0
-  google_sign_in_ios: 5.7.0
+  # Ensure SPM Package.swift is present (2.3.x / some 2.6 builds are CocoaPods-only).
+  path_provider_foundation: 2.5.1
   # google_mobile_ads pins webview 4.5 → old android impl uses removed v1 Registrar API on current Flutter SDK.
   webview_flutter_android: ^4.12.0
   # url_launcher 6.3.x can still resolve stale android embedder.

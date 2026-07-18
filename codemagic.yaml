@@ -44,6 +44,9 @@ workflows:
           keychain add-certificates
       - name: Build iOS IPA
         script: |
+          # Fresh CocoaPods graph; SPM plugins (firebase, google_sign_in_ios 5.8+)
+          # must not mix with a stale Pods lock that still embeds GTMSessionFetcher.
+          rm -rf ios/Pods ios/Podfile.lock ios/.symlinks ios/Flutter/Flutter.podspec
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
